@@ -3,5 +3,5 @@
     <Platform Name="x64" />
     <Platform Name="x86" />
   </Configurations>
-  <Project Path="Mochi.vcxproj" />
+  <Project Path="Mochi.vcxproj" Id="6290f08c-f6a2-44d9-bc06-50a6d876701d" />
 </Solution>

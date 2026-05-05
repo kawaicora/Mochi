@@ -15,12 +15,39 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="Mochi.cpp">
+    <ClCompile Include="src\Debug.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Mochi.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Scenario\Scenrio.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Ext\EventClass.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Utilities\Patch.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Mochi.h">
+    <ClInclude Include="src\Debug.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Mochi.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Utilities\Macro.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Utilities\Patch.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="src\EventSystem.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="src\EventClass.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>
