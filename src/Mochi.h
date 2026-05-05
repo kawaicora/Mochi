@@ -6,7 +6,7 @@ class Mochi {
 
 public:
 	static HANDLE hInstance;
-	static void Initialize();
-	static void Finalize();
-
+	static void RegisterEvent();
+private:
+	static bool isRegistered;
 };

@@ -5,8 +5,9 @@
 #include "Utilities/Macro.h"
 #include "EventSystem.h"
 #include "EventClass.h"
+#include "General.h"
 HANDLE Mochi::hInstance = 0;
-
+bool Mochi::isRegistered = false;
 
 bool __stdcall DllMain(HANDLE hInstance, DWORD dwReason, LPVOID v)
 {
@@ -14,7 +15,7 @@ bool __stdcall DllMain(HANDLE hInstance, DWORD dwReason, LPVOID v)
 	{
 	case DLL_PROCESS_ATTACH:
 		Mochi::hInstance = hInstance;
-		
+		Mochi::RegisterEvent();
 		break;
 	case DLL_PROCESS_DETACH:
 		
@@ -28,24 +29,17 @@ bool __stdcall DllMain(HANDLE hInstance, DWORD dwReason, LPVOID v)
 
 
 
-DEFINE_HOOK(0x7CD810, ExeRun, 0x9)
-{
+void Mochi::RegisterEvent() {
+	if (isRegistered) {
+		return;
+	}
+	EventClass::NetworkingRespondToEvent.Subscribe([](EventType* e) {
+		Debug::Log("Recv Event ID: %s\n", EventClass::EventTypeToString(*e));
+	});
+	General::LogicClassUpdateLateEvent.Subscribe([]() {
 
-	Debug::Log("Mochi Engine Initialized\n");
-	return 0;
-}
-
-DEFINE_JUMP(LJMP, 0x4068E0, 0x4A4AC0);
-
-
-DEFINE_HOOK(0x7CD8EF, ExeTerminate, 9) {
-	return 0;
-}
-
-auto token = EventClass::NetworkingRespondToEvent.Subscribe([](EventType* e) {
-	Debug::Log("Recv Event ID: %s\n", EventClass::EventTypeToString(*e));
 	});
 
-void PlaceEventRsp() {
-
+	isRegistered = true;
 }
+

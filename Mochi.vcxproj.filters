@@ -21,12 +21,6 @@
     <ClCompile Include="src\Mochi.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="src\Scenario\Scenrio.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Ext\EventClass.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
     <ClCompile Include="src\Utilities\Patch.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
@@ -48,6 +42,9 @@
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="src\EventClass.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="src\General.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>
