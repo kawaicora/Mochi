@@ -41,13 +41,16 @@
     <ClInclude Include="src\EventSystem.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="src\EventClass.h">
+    <ClInclude Include="src\EventHook.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="src\General.h">
+    <ClInclude Include="src\GeneralHook.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="src\EventData.h">
+    <ClInclude Include="src\FactoryHook.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="INILoader.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>
