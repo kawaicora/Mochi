@@ -3,12 +3,17 @@
 #include "EventSystem.h"
 #include "Utilities/Macro.h"
 #include "EventClass.h"
-#include "Mochi.h"
 #include <Windows.h>
 #include "Debug.h"
+
+#include <TargetClass.h>
+#include "EventData.h"
+#include <cstddef>
+#include <stdint.h>
+
 class EventClass {
 public :
-	static Event<EventType*> NetworkingRespondToEvent;
+    static Event<EventData*> NetworkingRespondToEvent;
     static const char* EventTypeToString(EventType type) {
         switch (type) {
         case EventType::Empty: return "Empty";
@@ -62,10 +67,13 @@ public :
         }
     }
 };
-Event<EventType*> EventClass::NetworkingRespondToEvent;
+Event<EventData*> EventClass::NetworkingRespondToEvent;
 DEFINE_HOOK(0x4C6CB0, Networking_RespondToEvent, 0x6)
 {
-    GET(EventType*, eventType, ECX);
-    EventClass::NetworkingRespondToEvent.Invoke(eventType);
+    GET(DWORD, EventKind, EAX);
+    GET(EventData*, event, ECX);
+    EventClass::NetworkingRespondToEvent.Invoke(event);
     return 0;
 };
+
+

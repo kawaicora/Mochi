@@ -6,6 +6,8 @@ class Debug {
 public:
 		
 
+	static void InitConsole();
+
 	static void Log(const char* pFormat, ...);
 	static void LogGame(const char* pFormat, ...);
 

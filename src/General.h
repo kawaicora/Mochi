@@ -1,9 +1,9 @@
 #pragma once
 #include "EventSystem.h"
 
-#include "Mochi.h"
 #include <Windows.h>
 #include "Debug.h"
+#include <iostream>
 
 class General
 {
@@ -26,6 +26,22 @@ Event<> General::LogicClassUpdateEvent;
 Event<> General::LogicClassUpdateLateEvent;
 Event<> General::GScreenClassDrawOnTopEvent;
 DEFINE_JUMP(LJMP, 0x4068E0, 0x4A4AC0); //日志重定向
+
+
+//DEFINE_HOOK(0x4A4AC0, Debug_Log, 0x6)  //重定向到控制台
+//{
+//	LEA_STACK(va_list, args, 0x8);
+//	GET_STACK(const char*, pFormat, 0x4);
+//
+//	char buffer[1024];
+//
+//	vsnprintf(buffer, sizeof(buffer), pFormat, args);
+//
+//	std::cout << buffer << std::endl;
+//
+//	return 0;
+//}
+
 
 DEFINE_HOOK(0x7CD810, YRBoot, 0x9)
 {

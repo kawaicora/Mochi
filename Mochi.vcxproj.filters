@@ -47,5 +47,8 @@
     <ClInclude Include="src\General.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="src\EventData.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
