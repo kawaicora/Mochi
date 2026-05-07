@@ -34,35 +34,29 @@ void DrawHouseInfo() {
 		if (pHouse->Defeated) {
 			continue;
 		}
-		NodeNameType* pNameType = NodeNameType::Array[pHouse->ArrayIndex];
-		//if (IsBadReadPtr(pNameType, sizeof(NodeNameType) ) || IsBadReadPtr(pNameType->Name, sizeof(pNameType->Name))) 
-		if(IsBadReadPtr(pNameType, sizeof(NodeNameType)))
-			goto LABLE_USE_UI_NAME;
-		if (IsBadReadPtr(pNameType->Name, sizeof(pNameType->Name)))
-			goto LABLE_USE_UI_NAME;
-		
-		
-		
-LABLE_USE_PLAYERNAME:
-		swprintf(
-			buf,
-			512,
-			L"%ls %ls %d  ",
-			pNameType->Name,
-			L"\u8d44\u91d1:",
-			pHouse->Available_Money()
-		);
-		goto LABLE_DRAW_TEXT;
-LABLE_USE_UI_NAME:
-		swprintf(
-			buf,
-			512,
-			L"%ls %ls %d  ",
-			pHouse->Type->UIName,
-			L"\u8d44\u91d1:",
-			pHouse->Available_Money()
-		);
-LABLE_DRAW_TEXT:
+		if (pHouse->ArrayIndex < NodeNameType::Array.Count) {
+			NodeNameType* pNameType = NodeNameType::Array[pHouse->ArrayIndex];
+			swprintf(
+				buf,
+				512,
+				L"%ls %ls %d  ",
+				pNameType->Name,
+				L"\u8d44\u91d1:",
+				pHouse->Available_Money()
+			);
+			Debug::Log("BattleStart %d Can Display PlayerName", pHouse->ArrayIndex);
+		}
+		else {
+			swprintf(
+				buf,
+				512,
+				L"%ls %ls %d  ",
+				pHouse->Type->UIName,
+				L"\u8d44\u91d1:",
+				pHouse->Available_Money()
+			);
+			Debug::Log("BattleStart %d Can't Display PlayerName", pHouse->ArrayIndex);
+		}
 		auto wanted = Drawing::GetTextDimensions(buf, loc, (DWORD)-1, 0, 0);
 		
 		auto h = DSurface::Composite->GetHeight();
@@ -319,7 +313,7 @@ void Mochi::RegisterEvent() {
 	GeneralHook::LogicClassUpdateLateEvent.Subscribe([]() {
 		
 		ChargeSuperWeapon();
-		
+		Debug::Log("Current cell: %d  %d", DisplayClass::Instance.Display_ZoneCell.X, DisplayClass::Instance.Display_ZoneCell.Y);
 		
 	});
 
