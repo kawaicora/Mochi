@@ -28,6 +28,7 @@
     <ClInclude Include="src\EventSystem.h" />
     <ClInclude Include="src\FactoryHook.h" />
     <ClInclude Include="src\GeneralHook.h" />
+    <ClInclude Include="src\HouseHook.h" />
     <ClInclude Include="src\Mochi.h" />
     <ClInclude Include="src\EventHook.h" />
     <ClInclude Include="src\TechnoHook.h" />

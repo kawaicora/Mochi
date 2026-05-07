@@ -7,7 +7,6 @@
 char Debug::LogStringBuffer[0x1000];
 int Debug::CurrentBufferSize = 0;
 
-
 std::string Debug::WStringToGBK(const wchar_t* wstr)
 {
     if (!wstr) return {};
