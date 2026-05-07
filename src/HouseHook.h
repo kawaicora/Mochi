@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include <Windows.h>
 #include <string>
 #include<HouseClass.h>
@@ -14,12 +14,17 @@ struct HouseClassName
 class HouseHook {
 public:
 	static Event<HouseClass*> HouseClassCreateEvent;
-	static void TransactMoney(HouseClass* pHouseClass,int money) {
-		if (money > 0) {
-			pHouseClass->Balance += money;
+	static const wchar_t* GetPlayerNameByIndex(int index)
+	{
+		if (index < NodeNameType::Array.Count)
+		{
+			NodeNameType* pNameType = NodeNameType::Array[index];
+
+			return pNameType->Name;
 		}
-		else {
-			pHouseClass->Balance -= money;
+		else
+		{
+			return HouseClass::Array[index]->Type->UIName;
 		}
 	}
 };
