@@ -24,13 +24,13 @@
     <ClCompile Include="src\Utilities\Patch.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="INILoader.h" />
     <ClInclude Include="src\Debug.h" />
     <ClInclude Include="src\EventSystem.h" />
     <ClInclude Include="src\FactoryHook.h" />
     <ClInclude Include="src\GeneralHook.h" />
     <ClInclude Include="src\Mochi.h" />
     <ClInclude Include="src\EventHook.h" />
+    <ClInclude Include="src\TechnoHook.h" />
     <ClInclude Include="src\Utilities\Macro.h" />
     <ClInclude Include="src\Utilities\Patch.h" />
   </ItemGroup>

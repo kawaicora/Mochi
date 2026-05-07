@@ -1,7 +1,7 @@
 #pragma once
 #include <Windows.h>
 #include <string>
-#include <YRpp.h>
+
 class Mochi {
 
 public:

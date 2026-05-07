@@ -50,7 +50,7 @@
     <ClInclude Include="src\FactoryHook.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="INILoader.h">
+    <ClInclude Include="src\TechnoHook.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>

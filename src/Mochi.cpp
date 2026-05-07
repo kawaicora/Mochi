@@ -6,8 +6,9 @@
 #include "EventHook.h"
 #include "GeneralHook.h"
 #include "FactoryHook.h"
+#include "TechnoHook.h"
 #include <vector>
-#include "../INILoader.h"
+#include <YRpp.h>
 HANDLE Mochi::hInstance = 0;
 bool Mochi::isRegistered = false;
 
@@ -77,19 +78,22 @@ void ChargeSuperWeapon() {
 			Debug::Log("super is zero\n");
 			continue;
 		}
-		if (super->CustomChargeTime == 100) {
-			Debug::Log("super is ready %d \n", super->CustomChargeTime);
-			continue;
-		}
+		int total = super->Type->RechargeTime;
+		int remain = super->RechargeTimer.GetTimeLeft();
+
+		int percent = (1.0f - (float)remain / total) * 100.0f;
+		//Debug::LogW(L"SuperWeapon: %ls IsReady: %ls CanFire: %ls  ChargePercent: %d \n",  super->Type->UIName,  super->IsReady ? L"true":L"false", super->CanFire()? L"true" : L"false",percent);
+
 		if (super->IsReady) {
-			Debug::Log("super is ready\n");
 			continue;
 		}
 		if (super->CanFire()) {
-			Debug::Log("super is ready\n");
 			continue;
 		}
-
+		
+		if (percent == 100) {
+			continue;
+		}
 		//发送事件
 
 
@@ -142,79 +146,163 @@ void Mochi::RegisterEvent() {
 	EventHook::NetworkingRespondToEvent.Subscribe([](EventClass* data) {
 		
 		switch (data->Type) {
-		case (EventType)MochiEventType::CoraCompleteProduction:
-		{
-			FactoryClass* pFactory;
-			HouseClass* pHouse = HouseClass::Array[data->HouseIndex];
-			switch (data->Produce.RTTIType) {
-			case AbstractType::Unit:
-			case AbstractType::UnitType:
+			case (EventType)MochiEventType::CoraCompleteProduction:
+			{
+				FactoryClass* pFactory;
+				HouseClass* pHouse = HouseClass::Array[data->HouseIndex];
+				TechnoTypeClass* pTechnoTypeClass =  TechnoTypeClass::GetByTypeAndIndex(data->Produce.RTTIType, data->Produce.HeapID);
+				switch (data->Produce.RTTIType) {
+					case AbstractType::Unit:
+					case AbstractType::UnitType:
+					{
+						if (data->Produce.IsNaval) {
+							pFactory = pHouse->Primary_ForShips;
+						}
+						else {
+							pFactory = pHouse->Primary_ForVehicles;
+						}
+						break;
+					}
+					case AbstractType::Aircraft:
+					case AbstractType::AircraftType: 
+					{
+						pFactory = pHouse->Primary_ForAircraft;
+						break;
+					}
+					
+					case AbstractType::Infantry:
+					case AbstractType::InfantryType:
+					{
+						pFactory = pHouse->Primary_ForInfantry;
+						break;
+					}
+					
+					case AbstractType::Building:
+					case AbstractType::BuildingType:
+					{
+						BuildCat buildCat = (BuildCat) -1;
+						if (const auto pBuildingType = abstract_cast<BuildingTypeClass*>(pTechnoTypeClass)) {
+							buildCat = pBuildingType->BuildCat;
+						}
+						if (buildCat == BuildCat::Combat) {
+							pFactory = pHouse->Primary_ForDefenses;
+						}
+						else {
+							pFactory = pHouse->Primary_ForBuildings;
+						}
+						break;
+					}
+				}
 
-				if (data->Produce.IsNaval) {
-					pFactory = pHouse->Primary_ForShips;
+				if (!pFactory) {
+					Debug::LogW(L"pFactory Is Zero At Try Complete Produce HeapID: %d RTTIType: %d\n", data->Produce.HeapID , (int)data->Produce.RTTIType);
+					return;
+				}
+				FactoryHook::CompleteProdution(pFactory);
+				Debug::LogW(L"CompleteProdece: %ls\n", pFactory->Object->GetTechnoType()->UIName);
+
+				break;
+			}
+			
+
+			case (EventType)MochiEventType::CoraSuperWeaponCharge: 
+			{
+				HouseClass* pHouse = HouseClass::Array[data->HouseIndex];
+
+				SuperClass*  pSuper  = pHouse->Supers[data->SpecialPlace.ID];
+				if (pSuper) {
+					pSuper->SetCharge(100);
+					Debug::LogW(L"SuperWeapon Charged : %ls\n", pSuper->Type->UIName);
 				}
 				else {
-					pFactory = pHouse->Primary_ForVehicles;
-				}
-				break;
-			case AbstractType::Aircraft:
-			case AbstractType::AircraftType:
-				pFactory = pHouse->Primary_ForAircraft;
-				break;
-			case AbstractType::Infantry:
-			case AbstractType::InfantryType:
-				pFactory = pHouse->Primary_ForInfantry;
-				break;
-			case AbstractType::Building:
-			case AbstractType::BuildingType:
-				if (BuildingTypeClass::Array[data->Produce.HeapID]->BuildCat == BuildCat::Combat) {
-					pFactory = pHouse->Primary_ForDefenses;
-				}
-				else {
-					pFactory = pHouse->Primary_ForBuildings;
+					Debug::LogW(L"pSuper is zero");
 				}
 				break;
 			}
+			
 
-			if (!pFactory) {
-				return;
-			}
-			FactoryHook::CompleteProdution(pFactory);
-			Debug::LogW(L"CompleteProdece: %ls\n", pFactory->Object->GetTechnoType()->UIName);
-		}
-			break;
-
-		case (EventType)MochiEventType::CoraSuperWeaponCharge: 
-		{
-			HouseClass* pHouse = HouseClass::Array[data->HouseIndex];
-
-			SuperClass*  pSuper  = pHouse->Supers[data->SpecialPlace.ID];
-			if (pSuper) {
-				pSuper->SetCharge(100);
-				Debug::LogW(L"SuperWeapon Charged : %ls\n", pSuper->Type->UIName);
-			}
-			else {
-				Debug::LogW(L"pSuper is zero");
-			}
-
-		}
-			break;
-
-		case EventType::Place:
-		{
-			if (data->Place.HeapID != -1) {
-				switch (data->Place.RTTIType) {
-				case AbstractType::Building:
-				case AbstractType::BuildingType:
-					BuildingTypeClass* pBuildingTypeClass = BuildingTypeClass::Array[data->Place.HeapID];
-					Debug::LogW(L"Place Bulilding %ls  %s \n", pBuildingTypeClass->UIName, pBuildingTypeClass->ID);
-					break;
-
+			case EventType::Place:
+			{
+				if (data->Place.HeapID != -1) {
+					switch (data->Place.RTTIType) {
+						case AbstractType::Unit:
+						case AbstractType::UnitType:
+						{
+							UnitTypeClass* pUnitTypeClass = UnitTypeClass::Array[data->Place.HeapID];
+							Debug::LogW(L"Place Unit %ls  %ls \n", pUnitTypeClass->UIName, pUnitTypeClass->ID);
+							break;
+						}
+						
+						case AbstractType::Aircraft:
+						case AbstractType::AircraftType:
+						{
+							AircraftTypeClass* pAircraftTypeClass = AircraftTypeClass::Array[data->Place.HeapID];
+							Debug::LogW(L"Place Aircraft %ls  %ls \n", pAircraftTypeClass->UIName, pAircraftTypeClass->ID);
+							break;
+						}
+						
+						case AbstractType::Infantry:
+						case AbstractType::InfantryType:
+						{
+							InfantryTypeClass* pInfantryTypeClass = InfantryTypeClass::Array[data->Place.HeapID];
+							Debug::LogW(L"Place Infantry %ls  %ls \n", pInfantryTypeClass->UIName, pInfantryTypeClass->ID);
+							break;
+						}
+						
+						case AbstractType::Building:
+						case AbstractType::BuildingType:
+						{
+							BuildingTypeClass* pBuildingTypeClass = BuildingTypeClass::Array[data->Place.HeapID];
+							Debug::LogW(L"Place Buiding %ls  %ls \n", pBuildingTypeClass->UIName, pBuildingTypeClass->ID);
+							break;
+						}
+						
+					}
 				}
+				break;
 			}
-		}
-			break;
-		}
+			
+			case EventType::Produce:
+			{
+				if (data->Produce.HeapID != -1) {
+					switch (data->Place.RTTIType) {
+						case AbstractType::Unit:
+						case AbstractType::UnitType:
+						{
+							UnitTypeClass* pUnitTypeClass = UnitTypeClass::Array[data->Place.HeapID];
+							Debug::LogW(L"Produce Unit %ls  %ls \n", pUnitTypeClass->UIName, pUnitTypeClass->ID);
+							break;
+						}
+					
+						case AbstractType::Aircraft:
+						case AbstractType::AircraftType:
+						{
+							AircraftTypeClass* pAircraftTypeClass = AircraftTypeClass::Array[data->Place.HeapID];
+							Debug::LogW(L"Produce Aircraft %ls  %ls \n", pAircraftTypeClass->UIName, pAircraftTypeClass->ID);
+							break;
+						}
+					
+						case AbstractType::Infantry:
+						case AbstractType::InfantryType:
+						{
+							InfantryTypeClass* pInfantryTypeClass = InfantryTypeClass::Array[data->Place.HeapID];
+							Debug::LogW(L"Produce Infantry %ls  %ls \n", pInfantryTypeClass->UIName, pInfantryTypeClass->ID);
+							break;
+						}
+					
+						case AbstractType::Building:
+						case AbstractType::BuildingType:
+						{
+							BuildingTypeClass* pBuildingTypeClass = BuildingTypeClass::Array[data->Place.HeapID];
+							Debug::LogW(L"Produce Building %ls  %ls \n", pBuildingTypeClass->UIName, pBuildingTypeClass->ID);
+							break;
+						}
+					} 
+				}
+				break;
+			}
+			
+		}//switch (data->Place.RTTIType)
 	});
 
 	GeneralHook::GScreenClassDrawOnTopEvent.Subscribe([]() {
@@ -236,7 +324,7 @@ void Mochi::RegisterEvent() {
 	});
 	GeneralHook::ScenarioStartEvent.Subscribe([]() {
 
-		
+		HouseClass::CurrentPlayer->GiveMoney(99999);
 
 
 	});
@@ -253,12 +341,13 @@ void Mochi::RegisterEvent() {
 		if (!pFactory->Object) {
 			return;
 		}
-		if (pFactory->Production.Value == 54) {
+		if (pFactory->Production.Value == 54 || pFactory->SpecialItem != -1) {
 			return;
 		}
-		if (pFactory->Owner->Available_Money() < pFactory->Balance) {
+		if (pFactory->IsSuspended) {
 			return;
 		}
+
 		auto event = (EventClass*)malloc(sizeof(EventClass));
 		memset(event, 0, sizeof(EventClass));
 
@@ -267,9 +356,12 @@ void Mochi::RegisterEvent() {
 		event->HouseIndex = HouseClass::CurrentPlayer->ArrayIndex;
 		event->Produce.RTTIType = pFactory->Object->WhatAmI();
 		event->Produce.IsNaval = pFactory->Object->GetTechnoType()->Naval;
-		event->Produce.HeapID = pFactory->Object->GetArrayIndex();
+		event->Produce.HeapID = TechnoHook::GetIndex(pFactory->Object->WhatAmI(), pFactory->Object->GetTechnoType());
+		if (event->Produce.HeapID == -1) {
+			return;
+		}
 		EventHook::AddEvent(event);
-		free(event);
+	
 	});
 	isRegistered = true;
 }
