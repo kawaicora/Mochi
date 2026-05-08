@@ -13,31 +13,36 @@ jobs:
     runs-on: windows-latest
 
     steps:
+      # 1. 拉代码 + 子模块
       - name: Checkout (with submodules)
         uses: actions/checkout@v4
         with:
           submodules: recursive
           fetch-depth: 0
-      - name: Install ATL (correct way)
+
+      # 2. 安装 ATL（关键修复）
+      - name: Install ATL (VC ATLMFC)
         shell: pwsh
         run: |
-          $vsPath = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" `
-            -products * `
-            -requires Microsoft.Component.VC.Runtime.UCRT.SDK `
-            -property installationPath `
-            -latest
+          $vsPath = "C:\Program Files\Microsoft Visual Studio\2022\Enterprise"
 
-          Write-Host "VS Path: $vsPath"
+          if (!(Test-Path $vsPath)) {
+            throw "Visual Studio not found at $vsPath"
+          }
+
+          Write-Host "Using VS: $vsPath"
 
           & "$vsPath\Common7\IDE\vs_installer.exe" modify `
             --installPath "$vsPath" `
             --add Microsoft.VisualStudio.Component.VC.ATLMFC `
             --quiet --norestart
 
+      # 3. Setup MSBuild
       - name: Setup MSBuild
         uses: microsoft/setup-msbuild@v2
 
-      - name: Build
+      # 4. Build
+      - name: Build (Release x86)
         shell: pwsh
         run: |
           msbuild Mochi.sln `
@@ -45,6 +50,7 @@ jobs:
             /p:Configuration=Release `
             /p:Platform=x86
 
+      # 5. Release upload
       - name: Release
         uses: softprops/action-gh-release@v2
         with:
