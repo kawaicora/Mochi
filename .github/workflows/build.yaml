@@ -1,41 +1,29 @@
-name: Build Mochi
+name: Release Build
 
 on:
   push:
-    branches:
-      - master
-
-  pull_request:
-
-  workflow_dispatch:
+    tags:
+      - 'v*'
 
 jobs:
   build:
     runs-on: windows-latest
 
-    strategy:
-      matrix:
-        config: [Release]
-        platform: [x86]
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup MSBuild
-        uses: microsoft/setup-msbuild@v2
+      - uses: microsoft/setup-msbuild@v2
 
-      - name: Build Solution
+      - name: Build
         run: |
           msbuild Mochi.sln ^
             /m ^
-            /p:Configuration=${{ matrix.config }} ^
-            /p:Platform=${{ matrix.platform }}
+            /p:Configuration=Release ^
+            /p:Platform=x86
 
-      - name: Upload Build Artifact
-        uses: actions/upload-artifact@v4
+      - name: Release
+        uses: softprops/action-gh-release@v2
         with:
-          name: Mochi-${{ matrix.config }}-${{ matrix.platform }}
-          path: |
+          files: |
             **/Release/*.dll
             **/Release/*.pdb
