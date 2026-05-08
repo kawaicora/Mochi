@@ -5,16 +5,25 @@ on:
     tags:
       - 'v*'
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: windows-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout (with submodules)
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
 
-      - uses: microsoft/setup-msbuild@v2
-      
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v2
+
       - name: Build
+        shell: pwsh
         run: |
           msbuild Mochi.sln `
             /m `
@@ -27,4 +36,3 @@ jobs:
           files: |
             **/Release/*.dll
             **/Release/*.pdb
-
