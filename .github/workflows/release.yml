@@ -1,4 +1,4 @@
-name: Release Build
+name: Release Build (v142)
 
 on:
   push:
@@ -13,27 +13,55 @@ jobs:
     runs-on: windows-latest
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          submodules: recursive
+    # =========================
+    # 1. Checkout
+    # =========================
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+        fetch-depth: 0
 
-      - name: Setup MSVC
-        uses: ilammy/msvc-dev-cmd@v1
+    # =========================
+    # 2. Install VS2019 v142 + ATL
+    # =========================
+    - name: Install MSVC v142 + ATL
+      run: |
+        choco install visualstudio2019buildtools --yes --no-progress --package-parameters "
+          --add Microsoft.VisualStudio.Workload.VCTools ^
+          --add Microsoft.VisualStudio.Component.VC.ATLMFC ^
+          --add Microsoft.VisualStudio.Component.VC.Tools.x86.x64 ^
+          --add Microsoft.VisualStudio.Component.Windows10SDK.19041 ^
+          --includeRecommended ^
+          --includeOptional ^
+          --quiet --norestart
+        "
 
-      - name: Install VC tools (ATL included)
-        shell: pwsh
-        run: |
-          choco install visualstudio2022-workload-vctools --yes
+    # =========================
+    # 3. Setup MSVC environment (v142)
+    # =========================
+    - name: Setup MSVC v142 environment
+      uses: ilammy/msvc-dev-cmd@v1
+      with:
+        arch: x86
 
-      - name: Build
-        shell: pwsh
-        run: |
-          msbuild Mochi.sln /m /p:Configuration=Release /p:Platform=x86
+    # =========================
+    # 4. Build solution
+    # =========================
+    - name: Build Release x86
+      shell: pwsh
+      run: |
+        msbuild Mochi.sln `
+          /m `
+          /p:Configuration=Release `
+          /p:Platform=x86
 
-      - name: Release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: |
-            **/Release/*.dll
-            **/Release/*.pdb
+    # =========================
+    # 5. Create GitHub Release
+    # =========================
+    - name: Release
+      uses: softprops/action-gh-release@v2
+      with:
+        files: |
+          **/Release/*.dll
+          **/Release/*.pdb
