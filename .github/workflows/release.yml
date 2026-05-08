@@ -13,12 +13,12 @@ jobs:
       - uses: actions/checkout@v4
 
       - uses: microsoft/setup-msbuild@v2
-
+      
       - name: Build
         run: |
-          msbuild Mochi.sln ^
-            /m ^
-            /p:Configuration=Release ^
+          msbuild Mochi.sln `
+            /m `
+            /p:Configuration=Release `
             /p:Platform=x86
 
       - name: Release
@@ -27,3 +27,4 @@ jobs:
           files: |
             **/Release/*.dll
             **/Release/*.pdb
+
