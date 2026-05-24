@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #pragma once
 #include "EventSystem.h"
@@ -41,10 +41,9 @@ bool FactoryHook::CompleteProdution(FactoryClass* pFactory) {
 	if (!pFactory->Owner) {
 		return false;
 	}
-	HouseClass* owner = pFactory->Owner;
 
-	if (owner->Available_Money() >= pFactory->Balance) {
-		owner->TakeMoney(pFactory->Balance);
+	if (pFactory->Owner->Available_Money() >= pFactory->Balance) {
+		pFactory->Owner->TakeMoney(pFactory->Balance);
 		pFactory->Production.Value = 54;
 		pFactory->Balance = 0;
 		pFactory->Production.HasChanged = 1;

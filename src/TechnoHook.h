@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include <HouseClass.h>
 class TechnoHook
@@ -40,7 +40,8 @@ public:
 				
 			}
 
-			return -1;
+			default:
+				return -1;
 		}
 		
 	}

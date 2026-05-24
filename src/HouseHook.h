@@ -14,19 +14,25 @@ struct HouseClassName
 class HouseHook {
 public:
 	static Event<HouseClass*> HouseClassCreateEvent;
-	static const wchar_t* GetPlayerNameByIndex(int index)
-	{
-		if (index < NodeNameType::Array.Count)
-		{
-			NodeNameType* pNameType = NodeNameType::Array[index];
 
-			return pNameType->Name;
-		}
-		else
+	static const wchar_t* GetPlayerNameByHouseIndex(int index)
+	{
+		NodeNameType  NodeNameTypeList[8]{ -1,-1,-1,-1,-1,-1,-1,-1 };
+
+		for (int i = 0; i < NodeNameType::Array.Count; i++)
 		{
-			return HouseClass::Array[index]->Type->UIName;
+			NodeNameType * node = NodeNameType::Array[i];
+			if (node->HouseIndex == index) {
+				return  node->Name;
+			}
 		}
-	}
+
+		return HouseClass::Array[index]->Type->UIName;
+		
+	};
+private:
+	
+	
 };
 
 Event<HouseClass*> HouseHook::HouseClassCreateEvent;

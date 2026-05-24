@@ -56,5 +56,8 @@
     <ClInclude Include="src\HouseHook.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="src\EventData.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

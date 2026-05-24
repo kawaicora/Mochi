@@ -38,7 +38,7 @@ void DrawHouseInfo() {
 			buf,
 			512,
 			L"%ls %ls %d  ",
-			HouseHook::GetPlayerNameByIndex(pHouse->ArrayIndex),
+			HouseHook::GetPlayerNameByHouseIndex(pHouse->ArrayIndex),
 			L"\u8d44\u91d1:",
 			pHouse->Available_Money()
 		);
@@ -57,7 +57,7 @@ void DrawHouseInfo() {
 }
 void ChargeSuperWeapon() {
 	for (int i = 0;i < HouseClass::CurrentPlayer->Supers.Count; i++) {
-		EventClass* event = EventHook::EventClass_CTOR();
+		EventData* event = EventData::EventClass_CTOR();
 		SuperClass* super = HouseClass::CurrentPlayer->Supers[i];
 		if (!super) {
 
@@ -82,11 +82,11 @@ void ChargeSuperWeapon() {
 		}
 		//发送事件
 
-
+		event->Frame = Unsorted::CurrentFrame;
 		event->Type = (EventType)MochiEventType::CoraSuperWeaponCharge;
 		event->HouseIndex = HouseClass::CurrentPlayer->ArrayIndex;
 		event->SpecialPlace.ID = i;
-		EventHook::AddEvent(event);
+		event->AddEvent();
 	}
 }
 //********************************
@@ -132,15 +132,17 @@ void Mochi::RegisterEvent() {
 	GeneralHook::CmdLineParseEvent.Subscribe([](GeneralHook::CmdLineArgs args) {
 		Debug::Log("Moshi 挂载成功 QvQ\n");
 	});
-	EventHook::NetworkingRespondToEvent.Subscribe([](EventClass* data) {
-		
+	EventHook::NetworkingRespondToEvent.Subscribe([](EventData* data) {
+		Debug::Log("Receive Event Type: %d HouseIndex: %d Frame: %d\n", (int)data->Type, data->HouseIndex, data->Frame);	
 		switch (data->Type) {
 			case (EventType)MochiEventType::CoraCompleteProduction:
 			{
 				FactoryClass* pFactory;
 				HouseClass* pHouse = HouseClass::Array[data->HouseIndex];
 				TechnoTypeClass* pTechnoTypeClass =  TechnoTypeClass::GetByTypeAndIndex(data->Produce.RTTIType, data->Produce.HeapID);
-				switch (data->Produce.RTTIType) {
+				
+				switch (data->Produce.RTTIType) 
+				{
 					case AbstractType::Unit:
 					case AbstractType::UnitType:
 					{
@@ -181,6 +183,11 @@ void Mochi::RegisterEvent() {
 						}
 						break;
 					}
+					default:
+						Debug::Log("*** Warning ***\n");
+						Debug::Log("Can't Process This  RTTIType %d \n",(int)data->Produce.RTTIType);
+						return;
+						
 				}
 
 				if (!pFactory) {
@@ -331,7 +338,7 @@ void Mochi::RegisterEvent() {
 		}
 		Debug::LogW(L"Factory Class Created Owner %ls %S\n", pFactory->Owner->Type->UIName, pFactory->Owner->Type->ID);
 		wchar_t msg[1024];
-		swprintf(msg, L"%ls 开始建造 %ls", HouseHook::GetPlayerNameByIndex(pFactory->Owner->ArrayIndex), pFactory->Object->GetTechnoType()->UIName);
+		swprintf(msg, L"%ls 开始建造 %ls", HouseHook::GetPlayerNameByHouseIndex(pFactory->Owner->ArrayIndex), pFactory->Object->GetTechnoType()->UIName);
 		auto color = ColorScheme::Red;
 		if (pFactory->Owner->IsAlliedWith(HouseClass::CurrentPlayer)) {
 			color = ColorScheme::Green;
@@ -341,7 +348,7 @@ void Mochi::RegisterEvent() {
 		if (pFactory->Owner != HouseClass::CurrentPlayer) {
 			return;
 		}
-		pFactory->Owner->TransactMoney( pFactory->Balance);
+		//pFactory->Owner->TransactMoney( pFactory->Balance);
 		
 	});
 	FactoryHook::ProgressUpdateEvent.Subscribe([](FactoryClass* pFactory) {
@@ -366,19 +373,18 @@ void Mochi::RegisterEvent() {
 		if (pFactory->Owner->Available_Money() < pFactory->Balance) {
 			return;
 		}
-		auto event = (EventClass*)malloc(sizeof(EventClass));
-		memset(event, 0, sizeof(EventClass));
-
-
+		EventData* event = EventData::EventClass_CTOR();
 		event->Type = (EventType)MochiEventType::CoraCompleteProduction;
-		event->HouseIndex = HouseClass::CurrentPlayer->ArrayIndex;
+		event->Frame = Unsorted::CurrentFrame;
+		event->HouseIndex = (unsigned char)HouseClass::CurrentPlayer->ArrayIndex;
+
 		event->Produce.RTTIType = pFactory->Object->WhatAmI();
 		event->Produce.IsNaval = pFactory->Object->GetTechnoType()->Naval;
 		event->Produce.HeapID = TechnoHook::GetIndex(pFactory->Object->WhatAmI(), pFactory->Object->GetTechnoType());
 		if (event->Produce.HeapID == -1) {
 			return;
 		}
-		EventHook::AddEvent(event);
+		event->AddEvent();
 	
 	});
 	isRegistered = true;
