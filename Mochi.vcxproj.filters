@@ -21,21 +21,12 @@
     <ClCompile Include="src\Mochi.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="src\Utilities\Patch.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\Debug.h">
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="src\Mochi.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Utilities\Macro.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Utilities\Patch.h">
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="src\EventSystem.h">
@@ -57,6 +48,21 @@
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="src\EventData.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="src\MochiINIReader.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="src\DebugTools.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="src\MochiGame.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="src\SomeCommandClass.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="src\MochiEventType.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>

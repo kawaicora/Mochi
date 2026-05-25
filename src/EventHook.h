@@ -1,7 +1,6 @@
 ﻿#pragma once
 #include <GeneralDefinitions.h>
 #include "EventSystem.h"
-#include "Utilities/Macro.h"
 #include <Windows.h>
 #include <EventData.h>
 #include "Debug.h"
@@ -9,21 +8,8 @@
 #include <TargetClass.h>
 #include <cstddef>
 #include <stdint.h>
-enum class MochiEventType : unsigned char
-{
-    
-    // Vanilla game used Events from 0x00 to 0x2F
-    // CnCNet reserved BuildCatEvents from 0x30 to 0x3F
-    // Ares used Events 0x60 and 0x61
-    // 0x70 Start  - 0x8F
-    CoraCompleteProduction = 0x70,
-    CoraSuperWeaponCharge = 0x71,
-    CoraMoneyChange = 0x72,
-
-
-};
-
-
+#include <Helpers/Macro.h>
+#include <MochiEventType.h>
 
 class EventHook {
 public:
@@ -48,7 +34,6 @@ DEFINE_HOOK(0x4C6CB0, Networking_RespondToEvent, 0x6)
     return 0;
 };
 
-// Ares没有这些GetEventSizeX  但是 Phobos有  但是必须写 即使覆盖也无所谓 因为覆盖了也不会调用 走别人的, DataBuffer 固定 104字节
 
 DEFINE_HOOK(0x64BE7D, GetEventSize1, 0x6)
 {

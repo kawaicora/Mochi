@@ -21,10 +21,10 @@
   <ItemGroup>
     <ClCompile Include="src\Debug.cpp" />
     <ClCompile Include="src\Mochi.cpp" />
-    <ClCompile Include="src\Utilities\Patch.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\Debug.h" />
+    <ClInclude Include="src\DebugTools.h" />
     <ClInclude Include="src\EventData.h" />
     <ClInclude Include="src\EventSystem.h" />
     <ClInclude Include="src\FactoryHook.h" />
@@ -32,9 +32,11 @@
     <ClInclude Include="src\HouseHook.h" />
     <ClInclude Include="src\Mochi.h" />
     <ClInclude Include="src\EventHook.h" />
+    <ClInclude Include="src\MochiEventType.h" />
+    <ClInclude Include="src\MochiGame.h" />
+    <ClInclude Include="src\MochiINIReader.h" />
+    <ClInclude Include="src\SomeCommandClass.h" />
     <ClInclude Include="src\TechnoHook.h" />
-    <ClInclude Include="src\Utilities\Macro.h" />
-    <ClInclude Include="src\Utilities\Patch.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>15.0</VCProjectVersion>

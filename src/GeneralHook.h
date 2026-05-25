@@ -14,6 +14,7 @@ public:
 	static Event<> YRBootEvent;
 	static Event<> ExeTerminateEvent;
 	static Event<> ScenarioStartEvent;
+	static Event<> CommandClassRegisterEvent;
 	static Event<> LogicClassInitEvent;
 	static Event<> ScenarioClearClassesEvent;
 	static Event<> LogicClassUpdateEvent;
@@ -28,16 +29,17 @@ Event<GeneralHook::CmdLineArgs> GeneralHook::CmdLineParseEvent;
 Event<> GeneralHook::ExeTerminateEvent;
 Event<> GeneralHook::ScenarioStartEvent;
 Event<> GeneralHook::LogicClassInitEvent;
+Event<> GeneralHook::CommandClassRegisterEvent;
 Event<> GeneralHook::ScenarioClearClassesEvent;
 Event<> GeneralHook::LogicClassUpdateEvent;
 Event<> GeneralHook::LogicClassUpdateLateEvent;
 Event<> GeneralHook::GScreenClassDrawOnTopEvent;
 
 
+DEFINE_HOOK(0x4068E0, DebugLog, 0x0) {
 
-
-DEFINE_JUMP(LJMP, 0x4068E0, 0x4A4AC0); //日志重定向
-
+	return 0x4A4AC0;
+}
 
 DEFINE_HOOK(0x7CD810, YRBoot, 0x9)
 {
@@ -56,6 +58,14 @@ DEFINE_HOOK(0x52F639, YR_CmdLineParse, 0x5)
 	return 0;
 }
 
+
+DEFINE_HOOK(0x532E37, CommandClassCallback_Register, 0)
+{
+	GeneralHook::CommandClassRegisterEvent.Invoke();
+	DWORD* D = GameCreate<DWORD>();
+	R->EAX(D);	//Allocate TypeSelectCommandClass
+	return 0x532E41;
+}
 
 DEFINE_HOOK(0x7CD8EF, ExeTerminate, 9) {
 	GeneralHook::ExeTerminateEvent.Invoke();

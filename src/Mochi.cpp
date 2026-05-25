@@ -2,7 +2,7 @@
 #include "Mochi.h"
 #include <Windows.h>
 #include "Debug.h"
-#include "Utilities/Macro.h"
+#include <Helpers/Macro.h>
 #include "EventHook.h"
 #include "GeneralHook.h"
 #include "FactoryHook.h"
@@ -10,85 +10,15 @@
 #include <vector>
 #include <YRpp.h>
 #include <HouseHook.h>
+
+#include "DebugTools.h"
+#include "MochiGame.h"
+#include <SomeCommandClass.h>
+
 HANDLE Mochi::hInstance = 0;
 bool Mochi::isRegistered = false;
-
-
-void DrawHouseInfo() {
-	
-
-	wchar_t buf[512];
-	std::vector<int> withNameHouseIndex;
-	Point2D loc;
-	loc.X = 0;
-	const int AdvCommBarHeight = 32;
-	int offset = AdvCommBarHeight;
-
-	for (auto const& pHouse : HouseClass::Array) {
-		if (!pHouse) {
-			continue;
-		}
-		if (pHouse == HouseClass::FindNeutral() || pHouse == HouseClass::FindSpecial()) {
-			continue;
-		}
-		if (pHouse->Defeated) {
-			continue;
-		}
-		swprintf(
-			buf,
-			512,
-			L"%ls %ls %d  ",
-			HouseHook::GetPlayerNameByHouseIndex(pHouse->ArrayIndex),
-			L"\u8d44\u91d1:",
-			pHouse->Available_Money()
-		);
-		auto wanted = Drawing::GetTextDimensions(buf, loc, (DWORD)-1, 0, 0);
-		
-		auto h = DSurface::Composite->GetHeight();
-		RectangleStruct rect = { 0, h - wanted.Height - offset, wanted.Width, wanted.Height };
-		DSurface::Composite->FillRect(&rect, COLOR_BLACK);
-	
-		DSurface::Composite->DrawTextA(buf, 0, rect.Y, Drawing::RGB_To_Int(pHouse->Color));
-		offset += wanted.Height;
-
-	}
-
-	withNameHouseIndex.clear();
-}
-void ChargeSuperWeapon() {
-	for (int i = 0;i < HouseClass::CurrentPlayer->Supers.Count; i++) {
-		EventData* event = EventData::EventClass_CTOR();
-		SuperClass* super = HouseClass::CurrentPlayer->Supers[i];
-		if (!super) {
-
-			Debug::Log("super is zero\n");
-			continue;
-		}
-		int total = super->Type->RechargeTime;
-		int remain = super->RechargeTimer.GetTimeLeft();
-
-		int percent = (1.0f - (float)remain / total) * 100.0f;
-		//Debug::Log("SuperWeapon: %ls IsReady: %ls CanFire: %ls  ChargePercent: %d \n",  super->Type->UIName,  super->IsReady ? L"true":L"false", super->CanFire()? L"true" : L"false",percent);
-
-		if (super->IsReady) {
-			continue;
-		}
-		if (super->CanFire()) {
-			continue;
-		}
-		
-		if (percent == 100) {
-			continue;
-		}
-		//发送事件
-
-		event->Frame = Unsorted::CurrentFrame;
-		event->Type = (EventType)MochiEventType::CoraSuperWeaponCharge;
-		event->HouseIndex = HouseClass::CurrentPlayer->ArrayIndex;
-		event->SpecialPlace.ID = i;
-		event->AddEvent();
-	}
-}
+MochiINIReader Mochi::INIReader;
+MochiINIReader::Section* Mochi::PlayerBaseConfig;
 //********************************
 
 /// <summary>
@@ -121,7 +51,8 @@ bool __stdcall DllMain(HANDLE hInstance, DWORD dwReason, LPVOID v)
 	return true;
 }
 
-
+//#define WAIT_DEBUGGER_ATTACH
+//#define DEBUGGER_AUTO_BREAK
 /// <summary>
 /// 注册事件
 /// </summary>
@@ -129,94 +60,96 @@ void Mochi::RegisterEvent() {
 	if (isRegistered) {
 		return;
 	}
+	GeneralHook::YRBootEvent.Subscribe([]() {
+		Debug::Log("Moshi Booted Successfully QvQ\n");
+#ifdef DEBUG 
+		//MessageBoxW(NULL, L"按下确认后开始等待调试器附加\n附加后自动触发断点", L"确认", MB_OK);
+		DebugTools::DetachFromDebugger();
+#elif DEBUG and WAIT_DEBUGGER_ATTACH
+		Debug::Log("开始等待调试器附加");
+		DebugTools::WaitDebuggerAttachAndBreak();
+#elif DEBUG and DEBUGGER_AUTO_BREAK
+		Debug::Log("自动触发断点");
+		DebugTools::WaitDebuggerAttachAndBreak();
+
+#endif
+
+
+
+		});
 	GeneralHook::CmdLineParseEvent.Subscribe([](GeneralHook::CmdLineArgs args) {
 		Debug::Log("Moshi 挂载成功 QvQ\n");
+		Debug::Log("###############################INILoadConfig######################################\n");
+		INIReader.LoadINI("__Mochi.ini");
+		PlayerBaseConfig = (MochiINIReader::Section*) INIReader.GetSection("PlayerBaseConfig");
+
+		if (PlayerBaseConfig)
+		{
+			for (auto& v : PlayerBaseConfig->Keys)
+			{
+				Debug::Log(
+					"%s %s\n",
+					v.first.c_str(), v.second.c_str());
+			}
+		}
+		Debug::Log("###############################INILoadConfigEnd######################################\n");
 	});
+
+	GeneralHook::CommandClassRegisterEvent.Subscribe([](){
+		MakeCommand<AIControlCommandClass>();
+		MakeCommand<InstantConstructionCommandClass>();
+		MakeCommand<AutoChargePlayerAllSuperweaponCommandClass>();
+		MakeCommand<UnlockAllUnitCommandClass>();
+		MakeCommand<LaunchSuperWeaponACommandClass>();
+		MakeCommand<LaunchSuperWeaponBCommandClass>();
+		MakeCommand<LaunchSuperWeaponCCommandClass>();
+		MakeCommand<LaunchSuperWeaponDCommandClass>();
+
+		//Testing...
+		MakeCommand<GenUnitCommandClass>();
+		MakeCommand<ActiveAllSuperWeaponCommandClass>();
+		
+	});
+
+
+
 	EventHook::NetworkingRespondToEvent.Subscribe([](EventData* data) {
 		Debug::Log("Receive Event Type: %d HouseIndex: %d Frame: %d\n", (int)data->Type, data->HouseIndex, data->Frame);	
 		switch (data->Type) {
 			case (EventType)MochiEventType::CoraCompleteProduction:
 			{
-				FactoryClass* pFactory;
-				HouseClass* pHouse = HouseClass::Array[data->HouseIndex];
-				TechnoTypeClass* pTechnoTypeClass =  TechnoTypeClass::GetByTypeAndIndex(data->Produce.RTTIType, data->Produce.HeapID);
 				
-				switch (data->Produce.RTTIType) 
-				{
-					case AbstractType::Unit:
-					case AbstractType::UnitType:
-					{
-						if (data->Produce.IsNaval) {
-							pFactory = pHouse->Primary_ForShips;
-						}
-						else {
-							pFactory = pHouse->Primary_ForVehicles;
-						}
-						break;
-					}
-					case AbstractType::Aircraft:
-					case AbstractType::AircraftType: 
-					{
-						pFactory = pHouse->Primary_ForAircraft;
-						break;
-					}
-					
-					case AbstractType::Infantry:
-					case AbstractType::InfantryType:
-					{
-						pFactory = pHouse->Primary_ForInfantry;
-						break;
-					}
-					
-					case AbstractType::Building:
-					case AbstractType::BuildingType:
-					{
-						BuildCat buildCat = (BuildCat) -1;
-						if (const auto pBuildingType = abstract_cast<BuildingTypeClass*>(pTechnoTypeClass)) {
-							buildCat = pBuildingType->BuildCat;
-						}
-						if (buildCat == BuildCat::Combat) {
-							pFactory = pHouse->Primary_ForDefenses;
-						}
-						else {
-							pFactory = pHouse->Primary_ForBuildings;
-						}
-						break;
-					}
-					default:
-						Debug::Log("*** Warning ***\n");
-						Debug::Log("Can't Process This  RTTIType %d \n",(int)data->Produce.RTTIType);
-						return;
-						
-				}
-
-				if (!pFactory) {
-					Debug::Log("pFactory Is Zero At Try Complete Produce HeapID: %d RTTIType: %d\n", data->Produce.HeapID , (int)data->Produce.RTTIType);
-					return;
-				}
-				FactoryHook::CompleteProdution(pFactory);
-				Debug::LogW(L"CompleteProdece: %ls\n", pFactory->Object->GetTechnoType()->UIName);
-
+				MochiGame::CoraCompleteProduction(data);
 				break;
 			}
 			
 
 			case (EventType)MochiEventType::CoraSuperWeaponCharge: 
 			{
-				HouseClass* pHouse = HouseClass::Array[data->HouseIndex];
-
-				SuperClass*  pSuper  = pHouse->Supers[data->SpecialPlace.ID];
-				if (pSuper) {
-					pSuper->SetCharge(100);
-					Debug::LogW(L"SuperWeapon Charged : %ls\n", pSuper->Type->UIName);
-				}
-				else {
-					Debug::Log("pSuper is zero");
-				}
+				MochiGame::CoraSuperWeaponCharge(data);
 				break;
 			}
-			
+			case (EventType)MochiEventType::CoraSpecialPlace:
+			{
+				MochiGame::CoraSpecialPlace(data);
+				break;
+			}
+			case (EventType)MochiEventType::CoraActiveSuperWeapon:
+			{
+				MochiGame::CoraActiveSuperWeapon(data);
+				break;
+			}
+			case (EventType)MochiEventType::CoraPlace:
+			{
+				MochiGame::CoraPlace(data);
+				break;
+			}
 
+			case (EventType)MochiEventType::CoraUnlockAllTech:
+			{
+				MochiGame::CoraUnlockAllTech(data);
+				break;
+			}
 			case EventType::Place:
 			{
 				if (data->Place.HeapID != -1) {
@@ -225,7 +158,7 @@ void Mochi::RegisterEvent() {
 						case AbstractType::UnitType:
 						{
 							UnitTypeClass* pUnitTypeClass = UnitTypeClass::Array[data->Place.HeapID];
-							Debug::LogW(L"Place Unit %ls  %S \n", pUnitTypeClass->UIName, pUnitTypeClass->ID);
+							Debug::LogW(L"放置单位 %ls  %S \n", pUnitTypeClass->UIName, pUnitTypeClass->ID);
 							break;
 						}
 						
@@ -233,7 +166,7 @@ void Mochi::RegisterEvent() {
 						case AbstractType::AircraftType:
 						{
 							AircraftTypeClass* pAircraftTypeClass = AircraftTypeClass::Array[data->Place.HeapID];
-							Debug::LogW(L"Place Aircraft %ls  %S \n", pAircraftTypeClass->UIName, pAircraftTypeClass->ID);
+							Debug::LogW(L"放置航空器 %ls  %S \n", pAircraftTypeClass->UIName, pAircraftTypeClass->ID);
 							break;
 						}
 						
@@ -241,7 +174,7 @@ void Mochi::RegisterEvent() {
 						case AbstractType::InfantryType:
 						{
 							InfantryTypeClass* pInfantryTypeClass = InfantryTypeClass::Array[data->Place.HeapID];
-							Debug::LogW(L"Place Infantry %ls  %S \n", pInfantryTypeClass->UIName, pInfantryTypeClass->ID);
+							Debug::LogW(L"放置步兵 %ls  %S \n", pInfantryTypeClass->UIName, pInfantryTypeClass->ID);
 							break;
 						}
 						
@@ -249,7 +182,7 @@ void Mochi::RegisterEvent() {
 						case AbstractType::BuildingType:
 						{
 							BuildingTypeClass* pBuildingTypeClass = BuildingTypeClass::Array[data->Place.HeapID];
-							Debug::LogW(L"Place Buiding %ls  %S \n", pBuildingTypeClass->UIName, pBuildingTypeClass->ID);
+							Debug::LogW(L"放置建筑 %ls  %S \n", pBuildingTypeClass->UIName, pBuildingTypeClass->ID);
 							break;
 						}
 						
@@ -266,7 +199,7 @@ void Mochi::RegisterEvent() {
 						case AbstractType::UnitType:
 						{
 							UnitTypeClass* pUnitTypeClass = UnitTypeClass::Array[data->Place.HeapID];
-							Debug::LogW(L"Produce Unit %ls  %S \n", pUnitTypeClass->UIName, pUnitTypeClass->ID);
+							Debug::LogW(L"开始建造单位 %ls  %S \n", pUnitTypeClass->UIName, pUnitTypeClass->ID);
 							break;
 						}
 					
@@ -274,7 +207,7 @@ void Mochi::RegisterEvent() {
 						case AbstractType::AircraftType:
 						{
 							AircraftTypeClass* pAircraftTypeClass = AircraftTypeClass::Array[data->Place.HeapID];
-							Debug::LogW(L"Produce Aircraft %ls  %S \n", pAircraftTypeClass->UIName, pAircraftTypeClass->ID);
+							Debug::LogW(L"开始建造航空器 %ls  %S \n", pAircraftTypeClass->UIName, pAircraftTypeClass->ID);
 							break;
 						}
 					
@@ -282,7 +215,7 @@ void Mochi::RegisterEvent() {
 						case AbstractType::InfantryType:
 						{
 							InfantryTypeClass* pInfantryTypeClass = InfantryTypeClass::Array[data->Place.HeapID];
-							Debug::LogW(L"Produce Infantry %ls  %S \n", pInfantryTypeClass->UIName, pInfantryTypeClass->ID);
+							Debug::LogW(L"开始建造步兵 %ls  %S \n", pInfantryTypeClass->UIName, pInfantryTypeClass->ID);
 							break;
 						}
 					
@@ -290,7 +223,7 @@ void Mochi::RegisterEvent() {
 						case AbstractType::BuildingType:
 						{
 							BuildingTypeClass* pBuildingTypeClass = BuildingTypeClass::Array[data->Place.HeapID];
-							Debug::LogW(L"Produce Building %ls  %S \n", pBuildingTypeClass->UIName, pBuildingTypeClass->ID);
+							Debug::LogW(L"开始建造建筑 %ls  %S \n", pBuildingTypeClass->UIName, pBuildingTypeClass->ID);
 							break;
 						}
 					} 
@@ -303,11 +236,13 @@ void Mochi::RegisterEvent() {
 
 	GeneralHook::GScreenClassDrawOnTopEvent.Subscribe([]() {
 
-		DrawHouseInfo();
+		MochiGame::DrawHouseInfo();
 	});
 	GeneralHook::LogicClassUpdateLateEvent.Subscribe([]() {
+		if (HouseHook::IsAutoChargePlayerAllSuperweapon) {
+			MochiGame::ChargeAllSuperWeapon(HouseClass::CurrentPlayer);
+		}
 		
-		ChargeSuperWeapon();
 		//Debug::Log("Current cell: %d  %d", DisplayClass::Instance.Display_ZoneCell.X, DisplayClass::Instance.Display_ZoneCell.Y);
 		
 	});
@@ -318,7 +253,7 @@ void Mochi::RegisterEvent() {
 			return;
 		}
 		
-		Debug::LogW(L"House Class Created %ls %S \n", pHouseClass->Type->UIName, pHouseClass->Type->ID);
+		Debug::LogW(L"House Class Created %ls %S \n", HouseHook::GetPlayerNameByHouseIndex(pHouseClass->ArrayIndex), pHouseClass->Type->ID);
 		if (!HouseClass::CurrentPlayer) {
 			return;
 		}
@@ -352,40 +287,9 @@ void Mochi::RegisterEvent() {
 		
 	});
 	FactoryHook::ProgressUpdateEvent.Subscribe([](FactoryClass* pFactory) {
-		if (!pFactory) {
-			return;
+		if (HouseHook::IsPlayerInstantConstruction) {
+			MochiGame::SendCompleteProduceEvent(HouseClass::CurrentPlayer,pFactory);
 		}
-		if (!pFactory->Owner) {
-			return;
-		}
-		if (pFactory->Owner != HouseClass::CurrentPlayer) {
-			return;
-		}
-		if (!pFactory->Object) {
-			return;
-		}
-		if (pFactory->Production.Value == 54 || pFactory->SpecialItem != -1) {
-			return;
-		}
-		if (pFactory->IsSuspended) {
-			return;
-		}
-		if (pFactory->Owner->Available_Money() < pFactory->Balance) {
-			return;
-		}
-		EventData* event = EventData::EventClass_CTOR();
-		event->Type = (EventType)MochiEventType::CoraCompleteProduction;
-		event->Frame = Unsorted::CurrentFrame;
-		event->HouseIndex = (unsigned char)HouseClass::CurrentPlayer->ArrayIndex;
-
-		event->Produce.RTTIType = pFactory->Object->WhatAmI();
-		event->Produce.IsNaval = pFactory->Object->GetTechnoType()->Naval;
-		event->Produce.HeapID = TechnoHook::GetIndex(pFactory->Object->WhatAmI(), pFactory->Object->GetTechnoType());
-		if (event->Produce.HeapID == -1) {
-			return;
-		}
-		event->AddEvent();
-	
 	});
 	isRegistered = true;
 }

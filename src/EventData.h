@@ -324,6 +324,11 @@ public:
 		{
 			char Unknown[12];
 		} AbandonAll;
+		struct UNLOCK_ALL_TECH
+		{
+			bool IsUnlock;
+
+		} UnlockAllTech;
 	};
 };
 #pragma pack(pop)
