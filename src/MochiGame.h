@@ -102,36 +102,35 @@ public:
 			}
 			AbstractType FactoryType = building->Type->Factory;
 		
-			if (pFactory->Object->GetTechnoType()->WhatAmI() == FactoryType) {
-				const int cameoWidth = 60;
-				const int cameoHeight = 48;
-				SHPStruct* cameo = pFactory->Object->GetType()->GetCameo();
-				const wchar_t* uiname = pFactory->Object->GetType()->UIName;
-				std::pair<Point2D, bool> result = TacticalClass::Instance->CoordsToClient(building->GetCoords());
-				if (!result.second) continue;
-				Point2D location = result.first;
-				location.Y -= 50; // Adjust the Y coordinate to be above the building
+			if (pFactory->Object->GetTechnoType()->WhatAmI() != FactoryType) continue; // Skip if the building's factory type doesn't match the factory's object type
+			//if (!building->IsPrimaryFactory) continue; // Skip if it's not a primary factory
+			const int cameoWidth = 60;
+			const int cameoHeight = 48;
+			SHPStruct* cameo = pFactory->Object->GetType()->GetCameo();
+			const wchar_t* uiname = pFactory->Object->GetType()->UIName;
+			std::pair<Point2D, bool> result = TacticalClass::Instance->CoordsToClient(building->GetCoords());
+			if (!result.second) continue;
+			Point2D location = result.first;
+			location.Y -= 50; // Adjust the Y coordinate to be above the building
 
-				RectangleStruct darkenBounds{ 0, 0, location.X + cameoWidth, location.Y + cameoHeight };
-				DSurface::Composite->DrawSHP(
-					FileSystem::CAMEO_PAL,
-					cameo,
-					0,
-					&location,
-					&darkenBounds,
-					BlitterFlags(0xE00),
-					0,
-					0,
-					ZGradient::Ground,
-					1000,
-					0,
-					nullptr,
-					0,
-					0,
-					0
-				);
-
-			}
+			RectangleStruct darkenBounds{ 0, 0, location.X + cameoWidth, location.Y + cameoHeight };
+			DSurface::Composite->DrawSHP(
+				FileSystem::CAMEO_PAL,
+				cameo,
+				0,
+				&location,
+				&darkenBounds,
+				BlitterFlags(0xE00),
+				0,
+				0,
+				ZGradient::Ground,
+				1000,
+				0,
+				nullptr,
+				0,
+				0,
+				0
+			);
 		}
 		
 	};
@@ -141,6 +140,7 @@ public:
 			if (!building->Factory) continue;
 			if (!building->Factory->Owner) continue;
 			if (!building->Factory->Object) continue;
+			//if (!building->IsPrimaryFactory) continue; // Skip if it's not a primary factory
 			//if (bFilterSelf && building->Factory->Owner == HouseClass::CurrentPlayer) continue;  //没有用因为玩家用鼠标点击建造没有设置Building里面的Factory属性，除非玩家建造物的Factory属性被手动设置了才会生效
 			const int cameoWidth = 60;
 			const int cameoHeight = 48;
