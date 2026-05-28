@@ -1,14 +1,8 @@
 ﻿#pragma once
-
-#pragma once
 #include "EventSystem.h"
-#include <Windows.h>
 #include "Debug.h"
 #include <iostream>
-#include <FactoryClass.h>
-#include <Helpers/Macro.h>
-#include <HouseClass.h>
-#include <Unsorted.h>
+#include <YRPP.h>
 
 class FactoryHook
 {

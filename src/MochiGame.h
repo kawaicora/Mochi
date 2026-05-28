@@ -2,12 +2,11 @@
 #include <vector>
 #include <YRpp.h>
 #include <HouseHook.h>
-#include "HouseClass.h"
 #include "EventHook.h"
+#include <TechnoHook.h>
 
 class MochiGame {
 public:
-	
 	static void ReadINI(const char* file) {
 		CCINIClass* pINI = GameCreate<CCINIClass>();
 		if (pINI) {
@@ -24,7 +23,7 @@ public:
 	static void SetCurrentPlayerAIControl(bool bCurrentPlayIsAIControl) {
 		HouseClass::CurrentPlayer->IsHumanPlayer = !bCurrentPlayIsAIControl; //设置成相反的值
 		ToggleCurrentPlayerAIControl(); //调用切换函数以应用更改
-		
+
 	}
 	static void ToggleCurrentPlayerAIControl() {
 		if (HouseClass::CurrentPlayer->IsHumanPlayer) {
@@ -46,6 +45,189 @@ public:
 			MessageListClass::Instance.PrintMessage(L"玩家接管控制!", 300, ColorScheme::Green);
 		}
 	}
+	static std::vector<HouseClass*> GetSelectedObjectOwnerHouse() {
+		std::vector<HouseClass*> HouseList;
+		for (auto const& abs : ObjectClass::Array) {
+			if (!abs) continue;
+			auto obj = dynamic_cast<ObjectClass*>(abs);
+			if (!obj) continue;
+			if (obj->IsSelected == false) continue;
+			if (HouseClass* pHouse = obj->GetOwningHouse()) {
+				if (std::find(HouseList.begin(), HouseList.end(), pHouse) == HouseList.end()) {
+					HouseList.push_back(pHouse);
+				}
+			}
+		}
+		return HouseList;
+	};
+	static void DrawPlayerFactoryProduction() {
+		if (!HouseClass::CurrentPlayer) return;
+		if (HouseClass::CurrentPlayer->Primary_ForAircraft) {
+			DrawPlayerFactoryProduction(HouseClass::CurrentPlayer->Primary_ForAircraft);
+		}
+		if(HouseClass::CurrentPlayer->Primary_ForBuildings){
+			DrawPlayerFactoryProduction(HouseClass::CurrentPlayer->Primary_ForBuildings);
+		}
+		if (HouseClass::CurrentPlayer->Primary_ForDefenses) {
+			DrawPlayerFactoryProduction(HouseClass::CurrentPlayer->Primary_ForDefenses);
+		}
+		if(HouseClass::CurrentPlayer->Primary_ForVehicles){
+			DrawPlayerFactoryProduction(HouseClass::CurrentPlayer->Primary_ForVehicles);
+		}
+		if (HouseClass::CurrentPlayer->Primary_ForInfantry) {
+			DrawPlayerFactoryProduction(HouseClass::CurrentPlayer->Primary_ForInfantry);
+		}
+		if (HouseClass::CurrentPlayer->Primary_ForShips) {
+			DrawPlayerFactoryProduction(HouseClass::CurrentPlayer->Primary_ForShips);
+		}
+		if (HouseClass::CurrentPlayer->Primary_Unused1) {
+			DrawPlayerFactoryProduction(HouseClass::CurrentPlayer->Primary_Unused1);
+		}
+		if (HouseClass::CurrentPlayer->Primary_Unused2) {
+			DrawPlayerFactoryProduction(HouseClass::CurrentPlayer->Primary_Unused2);
+		}
+		if (HouseClass::CurrentPlayer->Primary_Unused3) {
+			DrawPlayerFactoryProduction(HouseClass::CurrentPlayer->Primary_Unused3);
+		}
+	}
+	static void DrawPlayerFactoryProduction(FactoryClass* pFactory) 
+	{
+		if (!pFactory) return;
+		if (!pFactory->Owner) return;
+		if (!pFactory->Object) return;
+		if (pFactory->Owner != HouseClass::CurrentPlayer) return;
+		for (const auto& building : pFactory->Owner->Buildings) {
+			if (!building) {
+				continue;
+			}
+			AbstractType FactoryType = building->Type->Factory;
+		
+			if (pFactory->Object->GetTechnoType()->WhatAmI() == FactoryType) {
+				const int cameoWidth = 60;
+				const int cameoHeight = 48;
+				SHPStruct* cameo = pFactory->Object->GetType()->GetCameo();
+				const wchar_t* uiname = pFactory->Object->GetType()->UIName;
+				std::pair<Point2D, bool> result = TacticalClass::Instance->CoordsToClient(building->GetCoords());
+				if (!result.second) continue;
+				Point2D location = result.first;
+				location.Y -= 50; // Adjust the Y coordinate to be above the building
+
+				RectangleStruct darkenBounds{ 0, 0, location.X + cameoWidth, location.Y + cameoHeight };
+				DSurface::Composite->DrawSHP(
+					FileSystem::CAMEO_PAL,
+					cameo,
+					0,
+					&location,
+					&darkenBounds,
+					BlitterFlags(0xE00),
+					0,
+					0,
+					ZGradient::Ground,
+					1000,
+					0,
+					nullptr,
+					0,
+					0,
+					0
+				);
+
+			}
+		}
+		
+	};
+	static void DrawBuildingsFactoryProduction() {
+		for (auto const& building : BuildingClass::Array) {
+			if (!building) continue;
+			if (!building->Factory) continue;
+			if (!building->Factory->Owner) continue;
+			if (!building->Factory->Object) continue;
+			//if (bFilterSelf && building->Factory->Owner == HouseClass::CurrentPlayer) continue;  //没有用因为玩家用鼠标点击建造没有设置Building里面的Factory属性，除非玩家建造物的Factory属性被手动设置了才会生效
+			const int cameoWidth = 60;
+			const int cameoHeight = 48;
+			SHPStruct* cameo = building->Factory->Object->GetType()->GetCameo();
+			const wchar_t* uiname = building->Factory->Object->GetType()->UIName;
+			std::pair<Point2D, bool> result = TacticalClass::Instance->CoordsToClient(building->GetCoords());
+			if (!result.second) continue;
+
+			Point2D location = result.first;
+			location.Y -= 50; // Adjust the Y coordinate to be above the building
+			RectangleStruct darkenBounds{ 0, 0, location.X + cameoWidth, location.Y + cameoHeight };
+			DSurface::Composite->DrawSHP(
+				FileSystem::CAMEO_PAL,
+				cameo,
+				0,
+				&location,
+				&darkenBounds,
+				BlitterFlags(0xE00),
+				0,
+				0,
+				ZGradient::Ground,
+				1000,
+				0,
+				nullptr,
+				0,
+				0,
+				0
+			);
+		}
+
+	};
+
+	static std::vector<ObjectClass*> GetSelectedObjectList() {
+		std::vector<ObjectClass*> ObjectList;
+		for (auto const& abs : ObjectClass::Array) {
+			if (!abs) continue;
+			auto obj = dynamic_cast<ObjectClass*>(abs);
+			if (!obj) continue;
+			if (obj->IsSelected == false) continue;
+		
+			ObjectList.push_back(obj);
+		}
+		return ObjectList;
+	}
+	static void DrawAllGameObjectInfo (bool bFilterNotSelected , bool bFilterNotHouse = true)
+	{
+		for (auto const& abs : ObjectClass::Array) {
+			if (!abs) continue;
+			
+			auto obj = dynamic_cast<ObjectClass*>(abs);
+			if (!obj) continue;
+			if (bFilterNotHouse && !obj->GetOwningHouse()) continue;
+			if (bFilterNotSelected && obj->IsSelected == false) continue;
+			DrawObjectInfo(obj);
+		}
+	};
+	static void DrawObjectInfo(ObjectClass* obj) {
+		wchar_t buf[512];
+		std::pair<Point2D, bool> result = TacticalClass::Instance->CoordsToClient(obj->GetCoords());
+		if (!result.second) {
+			return;
+		}
+		Point2D loc = result.first;
+		const char* id = obj->GetType()->ID;
+		if (!id) return;
+		int strength = obj->GetType()->Strength;
+		int hp = obj->Health;
+		const wchar_t* uiname = obj->GetType()->UIName;
+		if (!uiname) uiname = L"";
+		if (uiname == L"") {
+			swprintf(buf, 512, L"%S %d/%d", id, hp, strength);
+		}
+		else {
+			swprintf(buf, 512, L"%ls %d/%d", uiname, hp, strength);
+		}
+		RectangleStruct wanted = Drawing::GetTextDimensions(buf, loc, (DWORD)-1, 0, 0);
+		RectangleStruct rect = { 0, 0, wanted.Width, wanted.Height };
+		loc.X -= wanted.Width/2;
+		loc.Y += 20;
+		if (HouseClass* pHouse = obj->GetOwningHouse()) {
+			DSurface::Composite->DrawTextA(buf, loc.X, loc.Y, Drawing::RGB_To_Int(pHouse->Color));
+		}
+		else {
+			DSurface::Composite->DrawTextA(buf, loc.X, loc.Y, COLOR_GRAYTEXT);
+		}
+		
+	};
 	static void DrawHouseInfo() {
 		wchar_t buf[512];
 		std::vector<int> withNameHouseIndex;
@@ -279,58 +461,11 @@ public:
 	};
 	//        事件处理函数
 	static void CoraCompleteProduction(EventData* data) {
-		FactoryClass* pFactory;
+		
 		HouseClass* pHouse = HouseClass::Array[data->HouseIndex];
 		TechnoTypeClass* pTechnoTypeClass = TechnoTypeClass::GetByTypeAndIndex(data->Produce.RTTIType, data->Produce.HeapID);
 
-		switch (data->Produce.RTTIType)
-		{
-		case AbstractType::Unit:
-		case AbstractType::UnitType:
-		{
-			if (data->Produce.IsNaval) {
-				pFactory = pHouse->Primary_ForShips;
-			}
-			else {
-				pFactory = pHouse->Primary_ForVehicles;
-			}
-			break;
-		}
-		case AbstractType::Aircraft:
-		case AbstractType::AircraftType:
-		{
-			pFactory = pHouse->Primary_ForAircraft;
-			break;
-		}
-
-		case AbstractType::Infantry:
-		case AbstractType::InfantryType:
-		{
-			pFactory = pHouse->Primary_ForInfantry;
-			break;
-		}
-
-		case AbstractType::Building:
-		case AbstractType::BuildingType:
-		{
-			BuildCat buildCat = (BuildCat)-1;
-			if (const auto pBuildingType = abstract_cast<BuildingTypeClass*>(pTechnoTypeClass)) {
-				buildCat = pBuildingType->BuildCat;
-			}
-			if (buildCat == BuildCat::Combat) {
-				pFactory = pHouse->Primary_ForDefenses;
-			}
-			else {
-				pFactory = pHouse->Primary_ForBuildings;
-			}
-			break;
-		}
-		default:
-			Debug::Log("*** Warning ***\n");
-			Debug::Log("Can't Process This  RTTIType %d \n", (int)data->Produce.RTTIType);
-			return;
-
-		}
+		FactoryClass* pFactory = TechnoHook::GetFactoryByTechnoTypeClass(pHouse, pTechnoTypeClass);
 
 		if (!pFactory) {
 			Debug::Log("pFactory Is Zero At Try Complete Produce HeapID: %d RTTIType: %d\n", data->Produce.HeapID, (int)data->Produce.RTTIType);

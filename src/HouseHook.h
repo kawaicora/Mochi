@@ -1,7 +1,5 @@
 ﻿#pragma once
-#include <Windows.h>
 #include <string>
-#include<HouseClass.h>
 #include<EventSystem.h>
 #include <Helpers/Macro.h>
 
@@ -24,7 +22,6 @@ public:
 	static std::vector<HouseHook::TechUnlockStruct> TechUnlockList;
 	static const wchar_t* GetPlayerNameByHouseIndex(int index)
 	{
-		NodeNameType  NodeNameTypeList[8]{ -1,-1,-1,-1,-1,-1,-1,-1 };
 
 		for (int i = 0; i < NodeNameType::Array.Count; i++)
 		{

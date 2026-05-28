@@ -1,14 +1,7 @@
 ﻿#pragma once
-#include <GeneralDefinitions.h>
+#include <YRPP.h>
 #include "EventSystem.h"
-#include <Windows.h>
 #include <EventData.h>
-#include "Debug.h"
-#include <EventClass.h>
-#include <TargetClass.h>
-#include <cstddef>
-#include <stdint.h>
-#include <Helpers/Macro.h>
 #include <MochiEventType.h>
 
 class EventHook {

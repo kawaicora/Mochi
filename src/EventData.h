@@ -1,9 +1,6 @@
 ﻿#pragma once
 
-#include <ScenarioClass.h>
-#include <QueueClass.h>
-#include <TargetClass.h>
-#include <Unsorted.h>
+#include <YRPP.h>
 #include <EventClass.h>
 
 #pragma pack(push, 1)

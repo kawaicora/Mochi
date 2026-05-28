@@ -1,8 +1,7 @@
 ﻿#include "Debug.h"
-#include <cstdarg>
-#include <stdio.h>
+
+#include <stringapiset.h>
 #include <ASMMacros.h>
-#include <Windows.h>
 #include <iostream>
 char Debug::LogStringBuffer[4096];
 wchar_t Debug::WLogStringBuffer[4096];

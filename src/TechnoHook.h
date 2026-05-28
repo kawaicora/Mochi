@@ -1,6 +1,7 @@
 ﻿#pragma once
-
-#include <HouseClass.h>
+#include <YRPP.h>
+#include <MapHook.h>
+#include <Debug.h>
 class TechnoHook
 {
 public:
@@ -44,12 +45,89 @@ public:
 		}
 
 	};
+
+	static FactoryClass* GetFactoryByTechnoTypeClass(HouseClass* pHouse, TechnoTypeClass* pTechnoTypeClass) {
+		FactoryClass* pFactory;
+		if (!pHouse) {
+			return nullptr;
+		}
+		AbstractType abs = pTechnoTypeClass->WhatAmI();
+		switch (abs)
+		{
+			case AbstractType::Unit:
+			case AbstractType::UnitType:
+			{
+				if (pTechnoTypeClass->Naval) {
+					pFactory = pHouse->Primary_ForShips;
+				}
+				else {
+					pFactory = pHouse->Primary_ForVehicles;
+				}
+				return pFactory;
+			}
+			case AbstractType::Aircraft:
+			case AbstractType::AircraftType:
+			{
+				pFactory = pHouse->Primary_ForAircraft;
+				return pFactory;
+			}
+
+			case AbstractType::Infantry:
+			case AbstractType::InfantryType:
+			{
+				pFactory = pHouse->Primary_ForInfantry;
+				return pFactory;
+			}
+
+			case AbstractType::Building:
+			case AbstractType::BuildingType:
+			{
+				if (const auto pBuildingType = abstract_cast<BuildingTypeClass*>(pTechnoTypeClass)) {
+					
+					if (pBuildingType->BuildCat == BuildCat::Combat) {
+						pFactory = pHouse->Primary_ForDefenses;
+					}
+					else {
+						pFactory = pHouse->Primary_ForBuildings;
+					}
+					return pFactory;
+				} else {
+					return nullptr;
+				}
+			}
+
+			default:
+			{
+				Debug::Log("*** Warning ***\n");
+				Debug::Log("Can't Process This  RTTIType %d \n", (int)abs);
+				return nullptr;
+			}
+		}
+	};
+
+
 	static bool PlaceTechnoAtMap(TechnoClass* pTechno, CellStruct location) {
 		TechnoTypeClass* pTechnoType = pTechno->GetTechnoType();
 		HouseClass* pHouse = pTechno->Owner;
-		AbstractType abs = pTechnoType->WhatAmI();
-
 		if (CellClass* pCell = MapClass::Instance.TryGetCellAt(location)) {
+			if (!MapHook::IsValidLandCell(pCell, pTechnoType))
+			{
+				pCell =
+					MapHook::FindNearestValidLandCell(
+						location,
+						pTechnoType);
+				if (!pCell)
+				{
+					Debug::LogW(
+						L"Failed To Find Valid Cell (%d,%d)\n",
+						location.X,
+						location.Y);
+					pTechno->UnInit();
+					return false;
+				}
+				location =
+					pCell->MapCoords;
+			}
 			pTechno->OnBridge = pCell->ContainsBridge();
 			CoordStruct coord = pCell->GetCoordsWithBridge();
 			++Unsorted::ScenarioInit;
@@ -71,6 +149,10 @@ public:
 				pTechno->Scatter(CoordStruct::Empty, true, false);
 			}
 			return true;
+		}
+		else {
+			Debug::LogW(L"Failed To Get Cell At Location (%d,%d). Object TechnoType: %ls\n", location.X, location.Y, pTechnoType->UIName);
+			return false;
 		}
 	};
 	static bool PlaceTechnoAtMap(TechnoTypeClass* pTechnoType, CellStruct location,HouseClass* pHouse) {

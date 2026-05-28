@@ -19,6 +19,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="MochiBase.cpp" />
     <ClCompile Include="src\Debug.cpp" />
     <ClCompile Include="src\Mochi.cpp" />
   </ItemGroup>
@@ -30,11 +31,14 @@
     <ClInclude Include="src\FactoryHook.h" />
     <ClInclude Include="src\GeneralHook.h" />
     <ClInclude Include="src\HouseHook.h" />
+    <ClInclude Include="src\MapHook.h" />
     <ClInclude Include="src\Mochi.h" />
     <ClInclude Include="src\EventHook.h" />
     <ClInclude Include="src\MochiEventType.h" />
     <ClInclude Include="src\MochiGame.h" />
     <ClInclude Include="src\MochiINIReader.h" />
+    <ClInclude Include="src\MochiCommon.h" />
+    <ClInclude Include="src\MochiUtilities.h" />
     <ClInclude Include="src\SomeCommandClass.h" />
     <ClInclude Include="src\TechnoHook.h" />
   </ItemGroup>
@@ -127,7 +131,7 @@
       <AssemblerListingLocation>$(IntDir)%(RelativeDir)</AssemblerListingLocation>
       <ObjectFileName>$(IntDir)%(RelativeDir)</ObjectFileName>
       <CallingConvention>StdCall</CallingConvention>
-      <DisableSpecificWarnings>4100;4201;4530;4731;4740;4458;4819;5103;5105;26495</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4100;4201;4530;4731;4740;4458;4819;5103;5105;26495;4716</DisableSpecificWarnings>
       <AdditionalOptions>%(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
@@ -142,7 +146,7 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
-      <WarningLevel>Level4</WarningLevel>
+      <WarningLevel>Level3</WarningLevel>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>false</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
@@ -166,12 +170,13 @@
       <RuntimeTypeInfo>true</RuntimeTypeInfo>
       <OpenMPSupport>true</OpenMPSupport>
       <CallingConvention>StdCall</CallingConvention>
-      <DisableSpecificWarnings>4100;4201;4530;4731;4740;4458;4819;5103;5105;26495</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4100;4201;4530;4731;4740;4458;4819;5103;5105</DisableSpecificWarnings>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableUAC>false</EnableUAC>
+      <AdditionalDependencies>%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">

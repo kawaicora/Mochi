@@ -1,7 +1,7 @@
 ﻿#pragma once
+#include <Windows.h>
 #include <cstdarg>
 #include <string>
-#include <windows.h>
 #define LOG_ANSI
 //#define LOG_GBK
 //#define LOG_UTF8

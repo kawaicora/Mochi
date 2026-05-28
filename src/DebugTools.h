@@ -3,7 +3,6 @@
 #ifdef DEBUG
 
 #include <Dbghelp.h>
-#include <Windows.h>
 #include <tlhelp32.h>
 
 class DebugTools {

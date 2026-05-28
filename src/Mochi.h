@@ -1,9 +1,10 @@
 ﻿#pragma once
-#include <Windows.h>
 #include <string>
 #include <MochiINIReader.h>
-class Mochi {
+#define WAIT_DEBUGGER_ATTACH
 
+typedef void* HANDLE;
+class Mochi {
 public:
 	static HANDLE hInstance;
 	static void RegisterEvent();

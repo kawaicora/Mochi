@@ -1,5 +1,4 @@
 ﻿#pragma once
-
 #include <string>
 #include <vector>
 #include <unordered_map>
@@ -8,10 +7,28 @@
 #include <algorithm>
 #include <filesystem>
 #include <cctype>
-
+#include <YRpp.h>
 class MochiINIReader
 {
 public:
+	//***********************RA2 INIClass ***********************
+    static INIClass* OpenConfig(const char* file) {
+        CCINIClass* pINI = GameCreate<CCINIClass>();
+
+        if (pINI) {
+            CCFileClass* cfg = GameCreate<CCFileClass>(file);
+
+            if (cfg) {
+                if (cfg->Exists()) {
+                    pINI->ReadCCFile(cfg);
+                }
+                GameDelete(cfg);
+            }
+        }
+
+        return pINI;
+    };
+    //***********************RA2 INIClass ***********************
 
     struct Value
     {
