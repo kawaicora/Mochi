@@ -13,6 +13,7 @@ class HouseHook {
 public:
 	static bool IsPlayerInstantConstruction;
 	static bool IsAutoChargePlayerAllSuperweapon;
+	static bool IsAutoGetCrate;
 	struct TechUnlockStruct
 	{
 		HouseClass* pHouse;
@@ -80,6 +81,7 @@ public:
 std::vector<HouseHook::TechUnlockStruct> HouseHook::TechUnlockList = {};
 bool HouseHook::IsPlayerInstantConstruction = false;
 bool HouseHook::IsAutoChargePlayerAllSuperweapon = false;
+bool HouseHook::IsAutoGetCrate = false;
 Event<HouseClass*> HouseHook::HouseClassCreateEvent;
 
 DEFINE_HOOK(0x4F6532, HouseClass_CTOR, 5) {

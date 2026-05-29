@@ -326,6 +326,12 @@ public:
 			bool IsUnlock;
 
 		} UnlockAllTech;
+
+		struct Money
+		{
+			int Amount;
+
+		} Money;
 	};
 };
 #pragma pack(pop)

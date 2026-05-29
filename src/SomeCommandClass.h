@@ -98,7 +98,37 @@ class AutoChargePlayerAllSuperweaponCommandClass : public CommandClass
 		return;
 	}
 };
+class GiveMoneyCommandClass : public CommandClass
+{
+public:
+	//CommandClass
+	virtual const char* GetName() const override
+	{
+		return "GiveMoney";
+	}
 
+	virtual const wchar_t* GetUIName() const override
+	{
+		return L"Give Money";
+	}
+
+	virtual const wchar_t* GetUICategory() const override
+	{
+		return L"Mochi开发选项";
+	}
+
+	virtual const wchar_t* GetUIDescription() const override
+	{
+		return L"给玩家一定数量的金钱";
+	}
+
+	virtual void Execute(WWKey eInput) const override
+	{
+
+		MochiGame::SendChangeMoneyEvent(HouseClass::CurrentPlayer, 1000);
+		return;
+	}
+};
 
 
 class UnlockAllUnitCommandClass

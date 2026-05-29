@@ -77,6 +77,8 @@ void Mochi::RegisterEvent() {
 
 
 		});
+
+
 	GeneralHook::CmdLineParseEvent.Subscribe([](GeneralHook::CmdLineArgs args) {
 		Debug::Log("Moshi 挂载成功 QvQ\n");
 		Debug::Log("###############################INILoadConfig######################################\n");
@@ -104,11 +106,24 @@ void Mochi::RegisterEvent() {
 		MakeCommand<LaunchSuperWeaponBCommandClass>();
 		MakeCommand<LaunchSuperWeaponCCommandClass>();
 		MakeCommand<LaunchSuperWeaponDCommandClass>();
-
-		//Testing...
+		MakeCommand<GiveMoneyCommandClass>();
 		MakeCommand<GenUnitCommandClass>();
+		//Testing...
+		
 		MakeCommand<ActiveAllSuperWeaponCommandClass>();
 
+	});
+
+	GeneralHook::ScenarioStartEvent.Subscribe([]() {
+		Debug::Log("Scenario Started\n");
+		MochiGame::PlayMovie("V_001");
+		//using Fn = DWORD * (__fastcall*)(const char* a1, int a2, int* a3);
+		//auto func = (Fn)0x5C07D0;
+		//int a = 0;
+		//DWORD* result = func("test", 1, &a);
+	});
+	GeneralHook::LogicClassInitEvent.Subscribe([]() {
+		Debug::Log("Logic Class Initialized\n");
 	});
 
 
@@ -116,14 +131,18 @@ void Mochi::RegisterEvent() {
 	EventHook::NetworkingRespondToEvent.Subscribe([](EventData* data) {
 		Debug::Log("Receive Event Type: %d HouseIndex: %d Frame: %d\n", (int)data->Type, data->HouseIndex, data->Frame);
 		switch (data->Type) {
+			//****Mochi事件处理****//
+			case (EventType)MochiEventType::CoraMoneyChange:
+			{
+				MochiGame::CoraMoneyChange(data);
+				break;
+			}
 			case (EventType)MochiEventType::CoraCompleteProduction:
 			{
 
 				MochiGame::CoraCompleteProduction(data);
 				break;
 			}
-
-
 			case (EventType)MochiEventType::CoraSuperWeaponCharge:
 			{
 				MochiGame::CoraSuperWeaponCharge(data);
@@ -150,87 +169,30 @@ void Mochi::RegisterEvent() {
 				MochiGame::CoraUnlockAllTech(data);
 				break;
 			}
+			//****原有事件处理****//
 			case EventType::Place:
 			{
-				if (data->Place.HeapID != -1) {
-					switch (data->Place.RTTIType) {
-					case AbstractType::Unit:
-					case AbstractType::UnitType:
-					{
-						UnitTypeClass* pUnitTypeClass = UnitTypeClass::Array[data->Place.HeapID];
-						Debug::LogW(L"放置单位 %ls  %S \n", pUnitTypeClass->UIName, pUnitTypeClass->ID);
-						break;
-					}
-
-					case AbstractType::Aircraft:
-					case AbstractType::AircraftType:
-					{
-						AircraftTypeClass* pAircraftTypeClass = AircraftTypeClass::Array[data->Place.HeapID];
-						Debug::LogW(L"放置航空器 %ls  %S \n", pAircraftTypeClass->UIName, pAircraftTypeClass->ID);
-						break;
-					}
-
-					case AbstractType::Infantry:
-					case AbstractType::InfantryType:
-					{
-						InfantryTypeClass* pInfantryTypeClass = InfantryTypeClass::Array[data->Place.HeapID];
-						Debug::LogW(L"放置步兵 %ls  %S \n", pInfantryTypeClass->UIName, pInfantryTypeClass->ID);
-						break;
-					}
-
-					case AbstractType::Building:
-					case AbstractType::BuildingType:
-					{
-						BuildingTypeClass* pBuildingTypeClass = BuildingTypeClass::Array[data->Place.HeapID];
-						Debug::LogW(L"放置建筑 %ls  %S \n", pBuildingTypeClass->UIName, pBuildingTypeClass->ID);
-						break;
-					}
-
-					}
-				}
+				MochiGame::OriginalPlaceEvent(data);
 				break;
 			}
 
 			case EventType::Produce:
 			{
-				if (data->Produce.HeapID != -1) {
-					switch (data->Place.RTTIType) {
-					case AbstractType::Unit:
-					case AbstractType::UnitType:
-					{
-						UnitTypeClass* pUnitTypeClass = UnitTypeClass::Array[data->Place.HeapID];
-						Debug::LogW(L"开始建造单位 %ls  %S \n", pUnitTypeClass->UIName, pUnitTypeClass->ID);
-						break;
-					}
-
-					case AbstractType::Aircraft:
-					case AbstractType::AircraftType:
-					{
-						AircraftTypeClass* pAircraftTypeClass = AircraftTypeClass::Array[data->Place.HeapID];
-						Debug::LogW(L"开始建造航空器 %ls  %S \n", pAircraftTypeClass->UIName, pAircraftTypeClass->ID);
-						break;
-					}
-
-					case AbstractType::Infantry:
-					case AbstractType::InfantryType:
-					{
-						InfantryTypeClass* pInfantryTypeClass = InfantryTypeClass::Array[data->Place.HeapID];
-						Debug::LogW(L"开始建造步兵 %ls  %S \n", pInfantryTypeClass->UIName, pInfantryTypeClass->ID);
-						break;
-					}
-
-					case AbstractType::Building:
-					case AbstractType::BuildingType:
-					{
-						BuildingTypeClass* pBuildingTypeClass = BuildingTypeClass::Array[data->Place.HeapID];
-						Debug::LogW(L"开始建造建筑 %ls  %S \n", pBuildingTypeClass->UIName, pBuildingTypeClass->ID);
-						break;
-					}
-					}
-				}
+				MochiGame::OriginalProduceEvent(data);
 				break;
 			}
 
+
+			case EventType::MegaMission:
+			{
+				MochiGame::OriginalMegaMissionEvent(data);
+				break;
+			}
+			case EventType::MegaMissionF:
+			{
+				MochiGame::OriginalMegaMissionFEvent(data);
+				break;
+			}
 		}//switch (data->Place.RTTIType)
 	});
 
@@ -238,8 +200,9 @@ void Mochi::RegisterEvent() {
 
 		MochiGame::DrawHouseInfo();
 		MochiGame::DrawAllGameObjectInfo(true,true);
-		MochiGame::DrawBuildingsFactoryProduction();
-		MochiGame::DrawPlayerFactoryProduction();
+		MochiGame::DrawAllFactoryProduction();
+		
+		//MochiGame::DrawRadarTest();
 		//MochiUtilities::UpdateScript();
 		//MochiUtilities::Render();
 	});

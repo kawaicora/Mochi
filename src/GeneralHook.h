@@ -21,13 +21,12 @@ public:
 	static Event<> GScreenClassDrawOnTopEvent;
 	static Event<GeneralHook::CmdLineArgs> CmdLineParseEvent;
 	
-
 };
 Event<> GeneralHook::YRBootEvent;
 Event<GeneralHook::CmdLineArgs> GeneralHook::CmdLineParseEvent;
 Event<> GeneralHook::ExeTerminateEvent;
-Event<> GeneralHook::ScenarioStartEvent;
 Event<> GeneralHook::LogicClassInitEvent;
+Event<> GeneralHook::ScenarioStartEvent;
 Event<> GeneralHook::CommandClassRegisterEvent;
 Event<> GeneralHook::ScenarioClearClassesEvent;
 Event<> GeneralHook::LogicClassUpdateEvent;

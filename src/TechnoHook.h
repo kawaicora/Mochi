@@ -45,7 +45,20 @@ public:
 		}
 
 	};
+	static FactoryClass* GetFactoryByTechnoTypeForNoOnlineAI(HouseClass* pHouse, TechnoTypeClass* pTechnoTypeClass) {
+		for (BuildingClass* building : pHouse->Buildings) {
 
+			if (!building->Factory) continue;
+			if (!building->Factory->Owner) continue;
+			if (building->Factory->Owner != pHouse) continue;
+			if (!building->Factory->Object) continue;
+			if (!building->Factory->Object->GetTechnoType()) continue;
+			if (building->Factory->Object->GetTechnoType() != pTechnoTypeClass) continue;
+			return building->Factory;
+			
+		}
+		return nullptr;
+	};
 	static FactoryClass* GetFactoryByTechnoTypeClass(HouseClass* pHouse, TechnoTypeClass* pTechnoTypeClass) {
 		FactoryClass* pFactory;
 		if (!pHouse) {
@@ -108,9 +121,11 @@ public:
 
 	static bool PlaceTechnoAtMap(TechnoClass* pTechno, CellStruct location) {
 		TechnoTypeClass* pTechnoType = pTechno->GetTechnoType();
+		ObjectTypeClass* pObjectType = pTechno->GetType();
 		HouseClass* pHouse = pTechno->Owner;
 		if (CellClass* pCell = MapClass::Instance.TryGetCellAt(location)) {
-			if (!MapHook::IsValidLandCell(pCell, pTechnoType))
+			
+			if (!MapHook::IsFoundationValid(pCell->MapCoords, pTechnoType))
 			{
 				pCell =
 					MapHook::FindNearestValidLandCell(
@@ -128,6 +143,7 @@ public:
 				location =
 					pCell->MapCoords;
 			}
+				
 			pTechno->OnBridge = pCell->ContainsBridge();
 			CoordStruct coord = pCell->GetCoordsWithBridge();
 			++Unsorted::ScenarioInit;
