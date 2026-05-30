@@ -1,24 +1,22 @@
-﻿
-#include "Mochi.h"
+﻿#include "Mochi.h"
 #include <Windows.h>
-#include "Debug.h"
 #include <Helpers/Macro.h>
-#include "EventHook.h"
-#include "GeneralHook.h"
-#include "FactoryHook.h"
-#include "TechnoHook.h"
 #include <vector>
-#include <YRpp.h>
-#include <HouseHook.h>
+#include <string>
+#include <GeneralHook.h>
+#include <DebugTools.h>
+#include <Debug.h>
+#include <MochiINI.h>
+#include <MochiGame.h>
+#include <MochiCommandClass.h>
+#include <FactoryHook.h>
+#include <MochiEventType.h>
+#include <EventData.h>
+#include <EventHook.h>
 
-#include "DebugTools.h"
-#include "MochiGame.h"
-#include <SomeCommandClass.h>
-#include "MochiUtilities.h"
 HANDLE Mochi::hInstance = 0;
 bool Mochi::isRegistered = false;
-MochiINIReader Mochi::INIReader;
-MochiINIReader::Section* Mochi::PlayerBaseConfig;
+
 //********************************
 
 /// <summary>
@@ -82,12 +80,12 @@ void Mochi::RegisterEvent() {
 	GeneralHook::CmdLineParseEvent.Subscribe([](GeneralHook::CmdLineArgs args) {
 		Debug::Log("Moshi 挂载成功 QvQ\n");
 		Debug::Log("###############################INILoadConfig######################################\n");
-		INIReader.LoadINI("mochi.ini");
-		PlayerBaseConfig = (MochiINIReader::Section*)INIReader.GetSection("PlayerBaseConfig");
+		MochiINI::INIReader.LoadINI("mochi.ini");
+		MochiINI::PlayerBaseConfig = (MochiINI::Section*)MochiINI::INIReader.GetSection("PlayerBaseConfig");
 
-		if (PlayerBaseConfig)
+		if (MochiINI::PlayerBaseConfig)
 		{
-			for (auto& v : PlayerBaseConfig->Keys)
+			for (auto& v : MochiINI::PlayerBaseConfig->Keys)
 			{
 				Debug::Log(
 					"%s %s\n",
@@ -117,10 +115,6 @@ void Mochi::RegisterEvent() {
 	GeneralHook::ScenarioStartEvent.Subscribe([]() {
 		Debug::Log("Scenario Started\n");
 		MochiGame::PlayMovie("V_001");
-		//using Fn = DWORD * (__fastcall*)(const char* a1, int a2, int* a3);
-		//auto func = (Fn)0x5C07D0;
-		//int a = 0;
-		//DWORD* result = func("test", 1, &a);
 	});
 	GeneralHook::LogicClassInitEvent.Subscribe([]() {
 		Debug::Log("Logic Class Initialized\n");
@@ -134,63 +128,63 @@ void Mochi::RegisterEvent() {
 			//****Mochi事件处理****//
 			case (EventType)MochiEventType::CoraMoneyChange:
 			{
-				MochiGame::CoraMoneyChange(data);
+				MochiEvent::CoraMoneyChange(data);
 				break;
 			}
 			case (EventType)MochiEventType::CoraCompleteProduction:
 			{
 
-				MochiGame::CoraCompleteProduction(data);
+				MochiEvent::CoraCompleteProduction(data);
 				break;
 			}
 			case (EventType)MochiEventType::CoraSuperWeaponCharge:
 			{
-				MochiGame::CoraSuperWeaponCharge(data);
+				MochiEvent::CoraSuperWeaponCharge(data);
 				break;
 			}
 			case (EventType)MochiEventType::CoraSpecialPlace:
 			{
-				MochiGame::CoraSpecialPlace(data);
+				MochiEvent::CoraSpecialPlace(data);
 				break;
 			}
 			case (EventType)MochiEventType::CoraActiveSuperWeapon:
 			{
-				MochiGame::CoraActiveSuperWeapon(data);
+				MochiEvent::CoraActiveSuperWeapon(data);
 				break;
 			}
 			case (EventType)MochiEventType::CoraPlace:
 			{
-				MochiGame::CoraPlace(data);
+				MochiEvent::CoraPlace(data);
 				break;
 			}
 
 			case (EventType)MochiEventType::CoraUnlockAllTech:
 			{
-				MochiGame::CoraUnlockAllTech(data);
+				MochiEvent::CoraUnlockAllTech(data);
 				break;
 			}
 			//****原有事件处理****//
 			case EventType::Place:
 			{
-				MochiGame::OriginalPlaceEvent(data);
+				MochiEvent::OriginalPlaceEvent(data);
 				break;
 			}
 
 			case EventType::Produce:
 			{
-				MochiGame::OriginalProduceEvent(data);
+				MochiEvent::OriginalProduceEvent(data);
 				break;
 			}
 
 
 			case EventType::MegaMission:
 			{
-				MochiGame::OriginalMegaMissionEvent(data);
+				MochiEvent::OriginalMegaMissionEvent(data);
 				break;
 			}
 			case EventType::MegaMissionF:
 			{
-				MochiGame::OriginalMegaMissionFEvent(data);
+				MochiEvent::OriginalMegaMissionFEvent(data);
 				break;
 			}
 		}//switch (data->Place.RTTIType)
@@ -199,10 +193,10 @@ void Mochi::RegisterEvent() {
 	GeneralHook::GScreenClassDrawOnTopEvent.Subscribe([]() {
 
 		MochiGame::DrawHouseInfo();
-		MochiGame::DrawAllGameObjectInfo(true,true);
+		MochiGame::DrawAllGameObjectInfo(false, true);
 		MochiGame::DrawAllFactoryProduction();
 		
-		//MochiGame::DrawRadarTest();
+		//MochiEvent::DrawRadarTest();
 		//MochiUtilities::UpdateScript();
 		//MochiUtilities::Render();
 	});
@@ -212,7 +206,7 @@ void Mochi::RegisterEvent() {
 	});
 
 	GeneralHook::LogicClassUpdateLateEvent.Subscribe([]() {
-		if (HouseHook::IsAutoChargePlayerAllSuperweapon) {
+		if (MochiHouse::IsAutoChargePlayerAllSuperweapon) {
 			MochiGame::ChargeAllSuperWeapon(HouseClass::CurrentPlayer);
 		}
 		
@@ -226,7 +220,7 @@ void Mochi::RegisterEvent() {
 			return;
 		}
 
-		Debug::LogW(L"House Class Created %ls %S \n", HouseHook::GetPlayerNameByHouseIndex(pHouseClass->ArrayIndex), pHouseClass->Type->ID);
+		Debug::LogW(L"House Class Created %ls %S \n", MochiHouse::GetPlayerNameByHouseIndex(pHouseClass->ArrayIndex), pHouseClass->Type->ID);
 		if (!HouseClass::CurrentPlayer) {
 			return;
 		}
@@ -253,8 +247,8 @@ void Mochi::RegisterEvent() {
 	});
 
 	FactoryHook::ProgressUpdateEvent.Subscribe([](FactoryClass* pFactory) {
-		if (HouseHook::IsPlayerInstantConstruction) {
-			MochiGame::SendCompleteProduceEvent(HouseClass::CurrentPlayer, pFactory);
+		if (MochiHouse::IsPlayerInstantConstruction) {
+			MochiEvent::SendCompleteProduceEvent(HouseClass::CurrentPlayer, pFactory);
 		}
 	});
 	isRegistered = true;

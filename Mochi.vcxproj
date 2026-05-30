@@ -19,9 +19,24 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="MochiBase.cpp" />
     <ClCompile Include="src\Debug.cpp" />
+    <ClCompile Include="src\EventData.cpp" />
+    <ClCompile Include="src\EventHook.cpp" />
+    <ClCompile Include="src\EventSystem.cpp" />
+    <ClCompile Include="src\FactoryHook.cpp" />
+    <ClCompile Include="src\GeneralHook.cpp" />
+    <ClCompile Include="src\HouseHook.cpp" />
+    <ClCompile Include="src\MochiBase.cpp" />
+    <ClCompile Include="src\MochiCommandClass.cpp" />
+    <ClCompile Include="src\MochiEvent.cpp" />
+    <ClCompile Include="src\MochiFactory.cpp" />
+    <ClCompile Include="src\MochiGame.cpp" />
+    <ClCompile Include="src\MochiGame.h" />
     <ClCompile Include="src\Mochi.cpp" />
+    <ClCompile Include="src\MochiHouse.cpp" />
+    <ClCompile Include="src\MochiINI.cpp" />
+    <ClCompile Include="src\MochiMap.cpp" />
+    <ClCompile Include="src\MochiTechno.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\Debug.h" />
@@ -31,16 +46,20 @@
     <ClInclude Include="src\FactoryHook.h" />
     <ClInclude Include="src\GeneralHook.h" />
     <ClInclude Include="src\HouseHook.h" />
-    <ClInclude Include="src\MapHook.h" />
     <ClInclude Include="src\Mochi.h" />
     <ClInclude Include="src\EventHook.h" />
     <ClInclude Include="src\MochiEventType.h" />
-    <ClInclude Include="src\MochiGame.h" />
-    <ClInclude Include="src\MochiINIReader.h" />
-    <ClInclude Include="src\MochiCommon.h" />
-    <ClInclude Include="src\MochiUtilities.h" />
-    <ClInclude Include="src\SomeCommandClass.h" />
-    <ClInclude Include="src\TechnoHook.h" />
+    <ClInclude Include="src\MochiEvent.h" />
+    <ClInclude Include="src\MochiFactory.h" />
+    <ClInclude Include="src\MochiHouse.h" />
+    <ClInclude Include="src\MochiINI.h" />
+    <ClInclude Include="src\MochiMap.h" />
+    <ClInclude Include="src\MochiTechno.h" />
+    <ClInclude Include="src\MochiCommandClass.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="src\EventSystem.inl" />
+    <None Include="src\MochiINI.inl" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>15.0</VCProjectVersion>

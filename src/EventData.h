@@ -1,47 +1,15 @@
 ﻿#pragma once
-
 #include <YRPP.h>
-#include <EventClass.h>
-
+#include <TargetClass.h>
 #pragma pack(push, 1)
 class EventData
 {
 public:
-
-
-
-	static EventData* EventClass_CTOR() {
-		alignas(EventData) char buffer[sizeof(EventData)];
-		auto event = reinterpret_cast<EventData*>(buffer);
-		memset(event, 0, sizeof(EventData));
-		return event;
-	}
-
-
-	bool AddEvent()
-	{
-		return EventClass::OutList.Add(*reinterpret_cast<EventClass*>(this));
-	}
-	explicit EventData(const EventData& another)
-	{
-		memcpy(this, &another, sizeof(*this));
-	}
-
-	EventData& operator=(const EventData& another)
-	{
-		if (this != &another)
-			memcpy(this, &another, sizeof(*this));
-
-		return *this;
-	}
-
-	bool operator==(const EventData& q) const
-	{
-		return memcmp(this, &q, sizeof(q)) == 0;
-	};
-
-
-
+	static EventData* EventClass_CTOR();
+	bool AddEvent();
+	explicit EventData(const EventData& another);
+	EventData& operator=(const EventData& another);
+	bool operator==(const EventData& q) const;
 	EventType Type;
 	bool IsExecuted;
 	char HouseIndex; // '-1' stands for not a valid house

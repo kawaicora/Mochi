@@ -18,4 +18,3 @@ public:
 	static wchar_t WLogStringBuffer[4096];
 	static int CurrentBufferSize;
 };
-

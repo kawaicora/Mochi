@@ -1,9 +1,7 @@
 ﻿#pragma once
-#include "CommandClass.h"
-#include "MochiGame.h"
 #include <string>
-
-
+#include <YRPP.h>
+#include <MochiGame.h>
 class AIControlCommandClass: public CommandClass
 {
 public:
@@ -63,7 +61,7 @@ public:
 	virtual void Execute(WWKey eInput) const override
 	{
 
-		HouseHook::IsPlayerInstantConstruction = !HouseHook::IsPlayerInstantConstruction;
+		MochiHouse::IsPlayerInstantConstruction = !MochiHouse::IsPlayerInstantConstruction;
 		return;
 	}
 };
@@ -94,7 +92,7 @@ class AutoChargePlayerAllSuperweaponCommandClass : public CommandClass
 	virtual void Execute(WWKey eInput) const override
 	{
 
-		HouseHook::IsAutoChargePlayerAllSuperweapon = !HouseHook::IsAutoChargePlayerAllSuperweapon;
+		MochiHouse::IsAutoChargePlayerAllSuperweapon = !MochiHouse::IsAutoChargePlayerAllSuperweapon;
 		return;
 	}
 };
@@ -125,7 +123,7 @@ public:
 	virtual void Execute(WWKey eInput) const override
 	{
 
-		MochiGame::SendChangeMoneyEvent(HouseClass::CurrentPlayer, 1000);
+		MochiEvent::SendChangeMoneyEvent(HouseClass::CurrentPlayer, 1000);
 		return;
 	}
 };
@@ -158,7 +156,7 @@ public:
 
 	virtual void Execute(WWKey eInput) const override
 	{
-		MochiGame::SendUnlockAllTechEvent(HouseClass::CurrentPlayer, !HouseHook::IsTechUnlocked(HouseClass::CurrentPlayer));
+		MochiEvent::SendUnlockAllTechEvent(HouseClass::CurrentPlayer, !MochiHouse::IsTechUnlocked(HouseClass::CurrentPlayer));
 		return;
 	}
 };
@@ -324,7 +322,6 @@ public:
 	{
 
 		MochiGame::RandomGenUnits(HouseClass::CurrentPlayer);
-		//TechnoHook::PlaceTechnoAtMap("E1", DisplayClass::Instance.Display_ZoneCell, HouseClass::CurrentPlayer);
 		return;
 	}
 };
@@ -357,7 +354,7 @@ public:
 	virtual void Execute(WWKey eInput) const override
 	{
 
-		MochiGame::SendActiveAllSuperWeaponEvent(HouseClass::CurrentPlayer);
+		MochiGame::ActiveAllSuperWeapon(HouseClass::CurrentPlayer);
 		return;
 	}
 };

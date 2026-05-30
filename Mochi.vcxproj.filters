@@ -21,7 +21,52 @@
     <ClCompile Include="src\Mochi.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="MochiBase.cpp">
+    <ClCompile Include="src\MochiGame.h">
+      <Filter>头文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\MochiBase.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\MochiTechno.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\MochiMap.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\MochiHouse.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\MochiCommandClass.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\GeneralHook.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\MochiEvent.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\MochiFactory.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\FactoryHook.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\HouseHook.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\EventData.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\EventHook.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\MochiGame.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\MochiINI.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\EventSystem.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>
@@ -44,38 +89,46 @@
     <ClInclude Include="src\FactoryHook.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="src\TechnoHook.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
     <ClInclude Include="src\HouseHook.h">
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="src\EventData.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="src\MochiINIReader.h">
+    <ClInclude Include="src\MochiINI.h">
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="src\DebugTools.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="src\MochiGame.h">
+    <ClInclude Include="src\MochiEvent.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="src\SomeCommandClass.h">
+    <ClInclude Include="src\MochiCommandClass.h">
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="src\MochiEventType.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="src\MochiCommon.h">
+    <ClInclude Include="src\MochiTechno.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="src\MochiUtilities.h">
+    <ClInclude Include="src\MochiMap.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="src\MapHook.h">
+    <ClInclude Include="src\MochiHouse.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="src\MochiFactory.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="src\EventSystem.inl">
+      <Filter>头文件</Filter>
+    </None>
+    <None Include="src\MochiINI.inl">
+      <Filter>头文件</Filter>
+    </None>
   </ItemGroup>
 </Project>

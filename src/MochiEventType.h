@@ -1,6 +1,4 @@
 ﻿#pragma once
-
-
 enum class MochiEventType : unsigned char
 {
 
@@ -16,4 +14,3 @@ enum class MochiEventType : unsigned char
 	CoraActiveSuperWeapon = 0x75,
 	CoraUnlockAllTech = 0x76,
 };
-
