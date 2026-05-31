@@ -1,6 +1,6 @@
 ﻿#include "MochiGame.h"
 #include <EventData.h>
-
+#include <MochiGraph.h>
 
 void MochiGame::ReadINI(const char* file) {
 	CCINIClass* pINI = GameCreate<CCINIClass>();
@@ -137,27 +137,36 @@ void MochiGame::DrawObjectInfo(ObjectClass* obj) {
 	int hp = obj->Health;
 	const wchar_t* uiname = obj->GetType()->UIName;
 	if (!uiname) uiname = L"";
+	int len = 0;
 	if (uiname == L"") {
-		swprintf(buf, 512, L"%S %d/%d", id, hp, strength);
+		len = swprintf(buf, 512, L"%S %d/%d", id, hp, strength);
 	}
 	else {
-		swprintf(buf, 512, L"%ls %d/%d", uiname, hp, strength);
+		len = swprintf(buf, 512, L"%ls %d/%d", uiname, hp, strength);
 	}
-	RectangleStruct wanted = Drawing::GetTextDimensions(buf, loc, (DWORD)-1, 0, 0);
-	RectangleStruct rect = { 0, 0, wanted.Width, wanted.Height };
-	//loc.X -= wanted.Width/2;
+	int fontSize = 14;
+	
 	loc.Y += 20;
-
-
-	COLORREF Color = Drawing::RGB_To_Int(128, 128, 128);
+	
+	//测试 
+	ColorStruct Color = ColorStruct{ 128,128,128 };
 	if (HouseClass* pHouse = obj->GetOwningHouse()) {
-		Color = Drawing::RGB_To_Int(pHouse->Color);
+		Color = pHouse->Color;
 	}
-	RectangleStruct drect = { 0, 0, 0, 0 };
-	DSurface::Composite->GetRect(&drect);
-	Point2D tmp{ 0,0 };
-	Fancy_Text_Print_Wide(tmp, buf, DSurface::Composite, drect, loc, Color, Drawing::RGB_To_Int(0, 0, 0), (TextPrintType)-1);
-
+	MochiGraph::GraphData data=  MochiGraph::GetCharacterBitmap(
+		buf,
+		14,
+		Color,
+		1,
+		ColorStruct{ 2,2,2 },
+		1
+	);
+	loc.X -= data.Width / 2;
+	MochiGraph::DrawGraphData(
+		data,
+		DSurface::Composite,
+		loc
+	);
 
 };
 void MochiGame::DrawHouseInfo() {

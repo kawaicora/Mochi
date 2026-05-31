@@ -36,6 +36,7 @@
     <ClCompile Include="src\MochiHouse.cpp" />
     <ClCompile Include="src\MochiINI.cpp" />
     <ClCompile Include="src\MochiMap.cpp" />
+    <ClCompile Include="src\MochiGraph.cpp" />
     <ClCompile Include="src\MochiTechno.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -54,6 +55,7 @@
     <ClInclude Include="src\MochiHouse.h" />
     <ClInclude Include="src\MochiINI.h" />
     <ClInclude Include="src\MochiMap.h" />
+    <ClInclude Include="src\MochiGraph.h" />
     <ClInclude Include="src\MochiTechno.h" />
     <ClInclude Include="src\MochiCommandClass.h" />
   </ItemGroup>
