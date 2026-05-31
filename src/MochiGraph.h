@@ -15,6 +15,9 @@ public:
         int Heigth;
         std::vector<ColorStruct> Data;
     };
+
+    static ColorStruct GetComplementColor(const ColorStruct& c);
+   
     static GraphData GetCharacterBitmap(
         const wchar_t* pText,
         int nFontSize,

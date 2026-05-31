@@ -1,5 +1,14 @@
 ﻿#include "MochiGraph.h"
 
+ColorStruct MochiGraph::GetComplementColor(const ColorStruct& c)
+{
+    return ColorStruct(
+        255 - c.R,
+        255 - c.G,
+        255 - c.B
+    );
+}
+
 MochiGraph::GraphData MochiGraph::GetCharacterBitmap(
     const wchar_t* pText,
     int nFontSize,
@@ -33,7 +42,7 @@ MochiGraph::GraphData MochiGraph::GetCharacterBitmap(
     }
 
     int width = totalWidth + outLineSize * 2;
-    int height = fontHeight + outLineSize * 2;
+    int height = fontHeight + outLineSize * 2 + 1;
 
     //-----------------------------------------
     // mask

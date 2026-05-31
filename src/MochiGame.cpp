@@ -155,10 +155,10 @@ void MochiGame::DrawObjectInfo(ObjectClass* obj) {
 	}
 	MochiGraph::GraphData data=  MochiGraph::GetCharacterBitmap(
 		buf,
-		14,
+		16,
 		Color,
 		1,
-		ColorStruct{ 2,2,2 },
+		MochiGraph::GetComplementColor(Color),
 		1
 	);
 	loc.X -= data.Width / 2;
