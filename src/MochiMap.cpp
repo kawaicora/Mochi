@@ -3,7 +3,7 @@
 
 bool MochiMap::IsCellOccupationOccupied(CellClass* pCell)
 {
-	return pCell->OccupationFlags & 0x20 || pCell->OccupationFlags & 0x40 || pCell->OccupationFlags & 0x80 || pCell->GetInfantry(false);
+	return pCell->OccupationFlags & 0x1 || pCell->OccupationFlags & 0x2 || pCell->OccupationFlags & 0x4 || pCell->OccupationFlags & 0x8 || pCell->OccupationFlags & 0x10 || pCell->OccupationFlags & 0x20 || pCell->OccupationFlags & 0x40 || pCell->OccupationFlags & 0x80 || pCell->GetInfantry(false);
 };
 
 bool MochiMap::IsFoundationValid(
@@ -42,7 +42,7 @@ bool MochiMap::IsFoundationValid(
 		{
 			return false;
 		}
-		if (IsCellOccupationOccupied(pCell))
+		if (MochiMap::IsCellOccupationOccupied(pCell))
 		{
 			return false;
 		}
@@ -89,7 +89,7 @@ bool MochiMap::IsFoundationValid(
 		{
 			return false;
 		}
-		if (IsCellOccupationOccupied(pCell))
+		if (MochiMap::IsCellOccupationOccupied(pCell))
 		{
 			return false;
 		}

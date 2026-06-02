@@ -3,7 +3,45 @@
 #include <MochiHouse.h>
 #include <MochiTechno.h>
 #include <MochiFactory.h>
+#include <MochiMegaMission.h>
 //******************************事件发送函数******************************//
+void MochiEvent::SendMoveEvent(AbstractClass* pAbstract,CellStruct location) {
+	if (CellClass* pCell = MapClass::Instance.TryGetCellAt(location)) {
+
+		HouseClass* pHouse = pAbstract->GetOwningHouse();
+		EventData* event = EventData::EventClass_CTOR();
+		event->Type = EventType::MegaMission;
+		event->Frame = Unsorted::CurrentFrame;
+		event->HouseIndex = (unsigned char)pHouse->ArrayIndex;
+		event->MegaMission.Whom = TargetClass(pAbstract);
+		event->MegaMission.Destination = TargetClass(pCell);
+		event->MegaMission.Mission = (unsigned char)Mission::Move;
+		event->AddEvent();
+	}
+	else {
+		Debug::LogW(L"无效的坐标 %d %d", location.X, location.Y);
+	}
+	
+}
+void MochiEvent::SendAttackEvent(AbstractClass* pAbstract, CellStruct location) {
+	if (CellClass* pCell = MapClass::Instance.TryGetCellAt(location)) {
+
+		HouseClass* pHouse = pAbstract->GetOwningHouse();
+		EventData* event = EventData::EventClass_CTOR();
+		event->Type = EventType::MegaMission;
+		event->Frame = Unsorted::CurrentFrame;
+		event->HouseIndex = (unsigned char)pHouse->ArrayIndex;
+		event->MegaMission.Whom = TargetClass(pAbstract);
+		event->MegaMission.Target = TargetClass(pCell);
+		event->MegaMission.Mission = (unsigned char)Mission::Attack;
+		event->AddEvent();
+	}
+	else {
+		Debug::LogW(L"无效的坐标 %d %d", location.X, location.Y);
+	}
+
+}
+
 void MochiEvent::SendCompleteProduceEvent(HouseClass* pHouse, FactoryClass* pFactory) {
 	if (!pFactory) {
 		return;
@@ -276,7 +314,19 @@ void MochiEvent::CoraPlace(EventData* data) {
 		return;
 	}
 };
+
 //*******************************原有事件解析函数******************************//
+void MochiEvent::OriginalFrameSyncEvent(EventData* data)
+{
+	Debug::LogW(L"***************************************FrameSync*************************************************\n");
+	Debug::LogW(L"House: %ls Frame: %d\n", MochiHouse::GetPlayerNameByHouseIndex(data->HouseIndex), data->Frame);
+}
+void MochiEvent::OriginalFrameInfoEvent(EventData* data)
+{
+	Debug::LogW(L"***************************************FrameInfo*************************************************\n");
+	Debug::LogW(L"House: %ls Frame: %d CRC: 0x%08X CommandCount: %d Delay: %d\n", MochiHouse::GetPlayerNameByHouseIndex(data->HouseIndex), data->Frame,data->FrameInfo.CRC, data->FrameInfo.CommandCount, data->FrameInfo.Delay);
+}
+
 void MochiEvent::OriginalPlaceEvent(EventData* data) {
 	Debug::LogW(L"***************************************Place*************************************************\n");
 	if (data->Place.HeapID != -1) {
@@ -364,150 +414,20 @@ void MochiEvent::OriginalMegaMissionEvent(EventData* data)
 	TargetClass destination = data->MegaMission.Destination;
 	TargetClass follow = data->MegaMission.Follow;
 	Debug::LogW(L"MegaMission Event: \nMission: %d \n_gap_: %d \nIsPlanningEvent: %ls\n", data->MegaMission.Mission, data->MegaMission._gap_, data->MegaMission.IsPlanningEvent == true ? L"是" : L"否");
-	Debug::LogW(L"MegaMission Event: \nTarget: %d \nWhom: %d \nDestination: %d \nFollow: %d\n", target, whom, destination, follow);
-	Debug::LogW(L"MegaMission Event: \nRTTI: \ntarget: %d \nwhom: %d \ndestination: %d \nfollow: %d\n", data->MegaMission.Target.m_RTTI, data->MegaMission.Whom.m_RTTI, data->MegaMission.Destination.m_RTTI, data->MegaMission.Follow.m_RTTI);
-	Debug::LogW(L"MegaMission Event: \nID: \ntarget: %d \nwhom: %d \ndestination: %d \nfollow: %d\n", data->MegaMission.Target.m_ID, data->MegaMission.Whom.m_ID, data->MegaMission.Destination.m_ID, data->MegaMission.Follow.m_ID);
-
-	switch ((Mission)data->MegaMission.Mission)
-	{
-	case Mission::None:
-		Debug::LogW(L"MegaMission Event: 无任务\n");
-		break;
-
-	case Mission::Sleep:
-		Debug::LogW(L"MegaMission Event: 睡眠\n");
-		break;
-
-	case Mission::Attack:
-		Debug::LogW(L"MegaMission Event: 攻击\n");
-		break;
-
-	case Mission::Move:
-		Debug::LogW(L"MegaMission Event: 移动\n");
-		break;
-
-	case Mission::QMove:
-		Debug::LogW(L"MegaMission Event: 强制移动\n");
-		break;
-
-	case Mission::Retreat:
-		Debug::LogW(L"MegaMission Event: 撤退\n");
-		break;
-
-	case Mission::Guard:
-		Debug::LogW(L"MegaMission Event: 警戒\n");
-		break;
-
-	case Mission::Sticky:
-		Debug::LogW(L"MegaMission Event: 粘附/跟随\n");
-		break;
-
-	case Mission::Enter:
-		Debug::LogW(L"MegaMission Event: 进入\n");
-		break;
-
-	case Mission::Capture:
-		Debug::LogW(L"MegaMission Event: 占领\n");
-		break;
-
-	case Mission::Eaten:
-		Debug::LogW(L"MegaMission Event: 被吞噬\n");
-		break;
-
-	case Mission::Harvest:
-		Debug::LogW(L"MegaMission Event: 采矿\n");
-		break;
-
-	case Mission::Area_Guard:
-		Debug::LogW(L"MegaMission Event: 区域警戒\n");
-		break;
-
-	case Mission::Return:
-		Debug::LogW(L"MegaMission Event: 返回\n");
-		break;
-
-	case Mission::Stop:
-		Debug::LogW(L"MegaMission Event: 停止\n");
-		break;
-
-	case Mission::Ambush:
-		Debug::LogW(L"MegaMission Event: 伏击\n");
-		break;
-
-	case Mission::Hunt:
-		Debug::LogW(L"MegaMission Event: 猎杀\n");
-		break;
-
-	case Mission::Unload:
-		Debug::LogW(L"MegaMission Event: 卸载\n");
-		break;
-
-	case Mission::Sabotage:
-		Debug::LogW(L"MegaMission Event: 破坏\n");
-		break;
-
-	case Mission::Construction:
-		Debug::LogW(L"MegaMission Event: 建造\n");
-		break;
-
-	case Mission::Selling:
-		Debug::LogW(L"MegaMission Event: 出售\n");
-		break;
-
-	case Mission::Repair:
-		Debug::LogW(L"MegaMission Event: 修理\n");
-		break;
-
-	case Mission::Rescue:
-		Debug::LogW(L"MegaMission Event: 救援\n");
-		break;
-
-	case Mission::Missile:
-		Debug::LogW(L"MegaMission Event: 导弹任务\n");
-		break;
-
-	case Mission::Harmless:
-		Debug::LogW(L"MegaMission Event: 无害任务\n");
-		break;
-
-	case Mission::Open:
-		Debug::LogW(L"MegaMission Event: 展开/打开\n");
-		break;
-
-	case Mission::Patrol:
-		Debug::LogW(L"MegaMission Event: 巡逻\n");
-		break;
-
-	case Mission::ParadropApproach:
-		Debug::LogW(L"MegaMission Event: 空降接近\n");
-		break;
-
-	case Mission::ParadropOverfly:
-		Debug::LogW(L"MegaMission Event: 空降飞越\n");
-		break;
-
-	case Mission::Wait:
-		Debug::LogW(L"MegaMission Event: 等待\n");
-		break;
-
-	case Mission::AttackMove:
-		Debug::LogW(L"MegaMission Event: 攻击移动\n");
-		break;
-
-	case Mission::SpyplaneApproach:
-		Debug::LogW(L"MegaMission Event: 间谍飞机接近\n");
-		break;
-
-	case Mission::SpyplaneOverfly:
-		Debug::LogW(L"MegaMission Event: 间谍飞机飞越\n");
-		break;
-
-	default:
-		Debug::LogW(
-			L"MegaMission Event: 未知任务 %d\n",
-			(int)data->MegaMission.Mission);
-		break;
-	}
+	Debug::LogW(
+		L"MegaMission Event: \n**Target: \n****RTTI:%S \n****ID:%d\n**Whom:\n****RTTI:%S \n****ID:%d\n**destination: \n****RTTI:%S \n****ID:%d \nfollow:\n****RTTI:%S \n****ID:%d \n", 
+		AbstractClass::GetRTTIName((AbstractType)data->MegaMission.Target.m_RTTI), 
+		data->MegaMission.Target.m_ID,
+		AbstractClass::GetRTTIName((AbstractType)data->MegaMission.Whom.m_RTTI), 
+		data->MegaMission.Whom.m_ID,
+		AbstractClass::GetRTTIName((AbstractType)data->MegaMission.Destination.m_RTTI),
+		data->MegaMission.Destination.m_ID,
+		AbstractClass::GetRTTIName((AbstractType)data->MegaMission.Follow.m_RTTI),
+		data->MegaMission.Follow.m_ID
+	);
+		
+	MochiMegaMission::ShowMegaMissionInfo(data);
+	
 };
 
 void MochiEvent::OriginalMegaMissionFEvent(EventData* data) //带运动学参数的命令
@@ -517,149 +437,16 @@ void MochiEvent::OriginalMegaMissionFEvent(EventData* data) //带运动学参数
 	TargetClass whom = data->MegaMissionF.Whom;
 	TargetClass destination = data->MegaMissionF.Destination;
 	Debug::LogW(L"MegaMission Event: \nMission: %d \n", data->MegaMissionF.Mission);
-	Debug::LogW(L"MegaMissionF Event: \nTarget: %d \nWhom: %d \nDestination: %d \n", target, whom, destination);
-	Debug::LogW(L"MegaMissionF Event: \nRTTI: \ntarget: %d \nwhom: %d \ndestination: %d \n", data->MegaMissionF.Target.m_RTTI, data->MegaMissionF.Whom.m_RTTI, data->MegaMissionF.Destination.m_RTTI);
-	Debug::LogW(L"MegaMissionF Event: \nID: target: %d \nwhom: %d \ndestination: %d \n", data->MegaMissionF.Target.m_ID, data->MegaMissionF.Whom.m_ID, data->MegaMissionF.Destination.m_ID);
+	Debug::LogW(
+		L"MegaMissionF Event: \n**Target: \n****RTTI:%S \n****ID:%d\n**Whom:\n****RTTI:%S \n****ID:%d\n**destination: \n****RTTI:%S \n****ID:%d \n",
+		AbstractClass::GetRTTIName((AbstractType)data->MegaMissionF.Target.m_RTTI),
+		data->MegaMissionF.Target.m_ID,
+		AbstractClass::GetRTTIName((AbstractType)data->MegaMissionF.Whom.m_RTTI),
+		data->MegaMissionF.Whom.m_ID,
+		AbstractClass::GetRTTIName((AbstractType)data->MegaMissionF.Destination.m_RTTI),
+		data->MegaMissionF.Destination.m_ID
+	);
 	Debug::LogW(L"MegaMissionF Event: \nSpeed: %d \nMaxSpeed: %d\n", data->MegaMissionF.Speed, data->MegaMissionF.MaxSpeed);
-
-	switch ((Mission)data->MegaMissionF.Mission)
-	{
-	case Mission::None:
-		Debug::LogW(L"MegaMissionF Event: 无任务\n");
-		break;
-
-	case Mission::Sleep:
-		Debug::LogW(L"MegaMissionF Event: 睡眠\n");
-		break;
-
-	case Mission::Attack:
-		Debug::LogW(L"MegaMissionF Event: 攻击\n");
-		break;
-
-	case Mission::Move:
-		Debug::LogW(L"MegaMissionF Event: 移动\n");
-		break;
-
-	case Mission::QMove:
-		Debug::LogW(L"MegaMissionF Event: 强制移动\n");
-		break;
-
-	case Mission::Retreat:
-		Debug::LogW(L"MegaMissionF Event: 撤退\n");
-		break;
-
-	case Mission::Guard:
-		Debug::LogW(L"MegaMissionF Event: 警戒\n");
-		break;
-
-	case Mission::Sticky:
-		Debug::LogW(L"MegaMissionF Event: 粘附/跟随\n");
-		break;
-
-	case Mission::Enter:
-		Debug::LogW(L"MegaMissionF Event: 进入\n");
-		break;
-
-	case Mission::Capture:
-		Debug::LogW(L"MegaMissionF Event: 占领\n");
-		break;
-
-	case Mission::Eaten:
-		Debug::LogW(L"MegaMissionF Event: 被吞噬\n");
-		break;
-
-	case Mission::Harvest:
-		Debug::LogW(L"MegaMissionF Event: 采矿\n");
-		break;
-
-	case Mission::Area_Guard:
-		Debug::LogW(L"MegaMissionF Event: 区域警戒\n");
-		break;
-
-	case Mission::Return:
-		Debug::LogW(L"MegaMissionF Event: 返回\n");
-		break;
-
-	case Mission::Stop:
-		Debug::LogW(L"MegaMissionF Event: 停止\n");
-		break;
-
-	case Mission::Ambush:
-		Debug::LogW(L"MegaMissionF Event: 伏击\n");
-		break;
-
-	case Mission::Hunt:
-		Debug::LogW(L"MegaMissionF Event: 猎杀\n");
-		break;
-
-	case Mission::Unload:
-		Debug::LogW(L"MegaMissionF Event: 卸载\n");
-		break;
-
-	case Mission::Sabotage:
-		Debug::LogW(L"MegaMissionF Event: 破坏\n");
-		break;
-
-	case Mission::Construction:
-		Debug::LogW(L"MegaMissionF Event: 建造\n");
-		break;
-
-	case Mission::Selling:
-		Debug::LogW(L"MegaMissionF Event: 出售\n");
-		break;
-
-	case Mission::Repair:
-		Debug::LogW(L"MegaMissionF Event: 修理\n");
-		break;
-
-	case Mission::Rescue:
-		Debug::LogW(L"MegaMissionF Event: 救援\n");
-		break;
-
-	case Mission::Missile:
-		Debug::LogW(L"MegaMissionF Event: 导弹任务\n");
-		break;
-
-	case Mission::Harmless:
-		Debug::LogW(L"MegaMissionF Event: 无害任务\n");
-		break;
-
-	case Mission::Open:
-		Debug::LogW(L"MegaMissionF Event: 展开/打开\n");
-		break;
-
-	case Mission::Patrol:
-		Debug::LogW(L"MegaMissionF Event: 巡逻\n");
-		break;
-
-	case Mission::ParadropApproach:
-		Debug::LogW(L"MegaMissionF Event: 空降接近\n");
-		break;
-
-	case Mission::ParadropOverfly:
-		Debug::LogW(L"MegaMissionF Event: 空降飞越\n");
-		break;
-
-	case Mission::Wait:
-		Debug::LogW(L"MegaMissionF Event: 等待\n");
-		break;
-
-	case Mission::AttackMove:
-		Debug::LogW(L"MegaMissionF Event: 攻击移动\n");
-		break;
-
-	case Mission::SpyplaneApproach:
-		Debug::LogW(L"MegaMissionF Event: 间谍飞机接近\n");
-		break;
-
-	case Mission::SpyplaneOverfly:
-		Debug::LogW(L"MegaMissionF Event: 间谍飞机飞越\n");
-		break;
-
-	default:
-		Debug::LogW(
-			L"MegaMission Event: 未知任务 %d\n",
-			(int)data->MegaMission.Mission);
-		break;
-	}
+	MochiMegaMission::ShowMegaMissionFInfo(data);
+	
 };

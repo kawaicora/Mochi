@@ -7,6 +7,8 @@ class MochiEvent {
 public:
 	static bool IsValidType(MochiEventType type);
 	//******************************事件发送函数******************************//
+	static void SendMoveEvent(AbstractClass* pAbstract, CellStruct location);
+	static void SendAttackEvent(AbstractClass* pAbstract, CellStruct location);
 	static void SendCompleteProduceEvent(HouseClass *pHouse,FactoryClass* pFactory);
 	static void SendChangeMoneyEvent(HouseClass* pHouse, int amount);
 	static void SendUnlockAllTechEvent(HouseClass* pHouse, bool IsUnlock);
@@ -25,6 +27,8 @@ public:
 	static void CoraUnlockAllTech(EventData* data);
 	static void CoraPlace(EventData* data);
 	//*******************************原有事件解析函数******************************//
+	static void OriginalFrameSyncEvent(EventData* data);
+	static void OriginalFrameInfoEvent(EventData* data);
 	static void OriginalPlaceEvent(EventData* data);
 	static void OriginalProduceEvent(EventData* data);
 	static void OriginalMegaMissionEvent(EventData* data) ;

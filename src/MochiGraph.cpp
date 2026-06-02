@@ -75,7 +75,7 @@ MochiGraph::GraphData MochiGraph::GetCharacterBitmap(
             for (int x = 0; x < advance && x < 32 * stride; ++x)
             {
                 int byteIndex = x >> 3;
-                int bitIndex = 7 - (x & 7);   // ★ MSB → LSB（关键修复）
+                int bitIndex = 7 - (x & 7);   
 
                 if (row[byteIndex] & (1 << bitIndex))
                 {
@@ -299,7 +299,7 @@ void MochiGraph::DrawGraphData(
         surface->GetPitch();
 
     int bpp =
-        surface->GetBytesPerPixel(); // 关键！
+        surface->GetBytesPerPixel(); 
 
     int sw = surface->Width;
     int sh = surface->Height;

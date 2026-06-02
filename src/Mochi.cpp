@@ -106,6 +106,10 @@ void Mochi::RegisterEvent() {
 		MakeCommand<LaunchSuperWeaponDCommandClass>();
 		MakeCommand<GiveMoneyCommandClass>();
 		MakeCommand<GenUnitCommandClass>();
+		MakeCommand<PlayMovieCommandClass>();
+		MakeCommand<MoveCommandClass>();
+		MakeCommand<AttackCommandClass>();
+		
 		//Testing...
 		
 		MakeCommand<ActiveAllSuperWeaponCommandClass>();
@@ -115,6 +119,9 @@ void Mochi::RegisterEvent() {
 	GeneralHook::ScenarioStartEvent.Subscribe([]() {
 		Debug::Log("Scenario Started\n");
 		MochiGame::PlayMovie("V_001");
+		//Game::EnableMPDebug = true;
+		//Game::EnableMPSyncDebug = true;
+		//Game::DrawMPDebugStats = true;
 	});
 	GeneralHook::LogicClassInitEvent.Subscribe([]() {
 		Debug::Log("Logic Class Initialized\n");
@@ -123,7 +130,7 @@ void Mochi::RegisterEvent() {
 
 
 	EventHook::NetworkingRespondToEvent.Subscribe([](EventData* data) {
-		Debug::Log("Receive Event Type: %d HouseIndex: %d Frame: %d\n", (int)data->Type, data->HouseIndex, data->Frame);
+		Debug::Log("Receive Event Type: 0x%02X HouseIndex: %d Frame: %d\n", (int)data->Type, data->HouseIndex, data->Frame);
 		switch (data->Type) {
 			//****Mochi事件处理****//
 			case (EventType)MochiEventType::CoraMoneyChange:
@@ -164,6 +171,16 @@ void Mochi::RegisterEvent() {
 				break;
 			}
 			//****原有事件处理****//
+			case EventType::FrameSync:
+			{
+				MochiEvent::OriginalFrameSyncEvent(data);
+				break;
+			}
+			case EventType::FrameInfo:
+			{
+				MochiEvent::OriginalFrameInfoEvent(data);
+				break;
+			}
 			case EventType::Place:
 			{
 				MochiEvent::OriginalPlaceEvent(data);
