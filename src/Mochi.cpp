@@ -119,9 +119,6 @@ void Mochi::RegisterEvent() {
 	GeneralHook::ScenarioStartEvent.Subscribe([]() {
 		Debug::Log("Scenario Started\n");
 		MochiGame::PlayMovie("V_001");
-		//Game::EnableMPDebug = true;
-		//Game::EnableMPSyncDebug = true;
-		//Game::DrawMPDebugStats = true;
 	});
 	GeneralHook::LogicClassInitEvent.Subscribe([]() {
 		Debug::Log("Logic Class Initialized\n");
