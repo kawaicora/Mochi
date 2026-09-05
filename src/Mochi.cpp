@@ -47,9 +47,6 @@ bool __stdcall DllMain(HANDLE hInstance, DWORD dwReason, LPVOID v)
 	}
 	return true;
 }
-
-//#define WAIT_DEBUGGER_ATTACH
-//#define DEBUGGER_AUTO_BREAK
 /// <summary>
 /// 注册事件
 /// </summary>
@@ -62,19 +59,28 @@ void Mochi::RegisterEvent() {
 #ifdef DEBUG 
 		//MessageBoxW(NULL, L"按下确认后开始等待调试器附加\n附加后自动触发断点", L"确认", MB_OK);
 		DebugTools::DetachFromDebugger();
-#elif DEBUG and WAIT_DEBUGGER_ATTACH
+#endif
+
+#ifdef DEBUG and WAIT_DEBUGGER_ATTACH
 		Debug::Log("开始等待调试器附加");
 		DebugTools::WaitDebuggerAttachAndBreak();
-#elif DEBUG and DEBUGGER_AUTO_BREAK
-		Debug::Log("自动触发断点");
-		DebugTools::WaitDebuggerAttachAndBreak();
-
 #endif
 
 
 
 		});
+	RadarHook::RadarDrawEvent.Subscribe([]() {
+		if (!RadarHook::SkipRadarDraw)
+		{
+			RadarHook::SkipRadarDraw = true;
+			Debug::Log("禁用小地图");
 
+		}
+		else {
+			RadarHook::DrawRadar();
+		}
+			
+	});
 
 	GeneralHook::CmdLineParseEvent.Subscribe([](GeneralHook::CmdLineArgs args) {
 		Debug::Log("Moshi 挂载成功 QvQ\n");
@@ -105,13 +111,12 @@ void Mochi::RegisterEvent() {
 		MakeCommand<LaunchSuperWeaponDCommandClass>();
 		MakeCommand<GiveMoneyCommandClass>();
 		MakeCommand<GenUnitCommandClass>();
-		MakeCommand<PlayMovieCommandClass>();
 		MakeCommand<MoveCommandClass>();
 		MakeCommand<AttackCommandClass>();
 		
 		//Testing...
 		
-		MakeCommand<PlayMapMovieCommandClass>();
+	
 
 	});
 
@@ -209,7 +214,7 @@ void Mochi::RegisterEvent() {
 		MochiGame::DrawAllGameObjectInfo(false, true);
 		MochiGame::DrawAllFactoryProduction();
 		
-		//MochiEvent::DrawRadarTest();
+		
 		//MochiUtilities::UpdateScript();
 		//MochiUtilities::Render();
 	});

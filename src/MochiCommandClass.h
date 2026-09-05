@@ -290,40 +290,6 @@ public:
 	}
 };
 
-class PlayMovieCommandClass : public CommandClass 
-{
-public:
-	static DWORD __fastcall sub_5C07D0(const char* FullPath, DSurface* surface, int* a3)
-	{
-		JMP_STD(0x5C07D0);
-	}
-
-	virtual const char* GetName() const override
-	{
-		return "PlayMovie";
-	}
-
-	virtual const wchar_t* GetUIName() const override
-	{
-		return L"Play Movie";
-	}
-
-	virtual const wchar_t* GetUICategory() const override
-	{
-		return L"Mochi开发选项";
-	}
-
-	virtual const wchar_t* GetUIDescription() const override
-	{
-		return L"Play Movie";
-	}
-
-	virtual void Execute(WWKey eInput) const override
-	{
-		sub_5C07D0("V_001", DSurface::Sidebar, 0);
-		return;
-	}
-};
 
 class MoveCommandClass : public CommandClass
 {
@@ -467,7 +433,7 @@ public:
 	virtual void Execute(WWKey eInput) const override
 	{
 
-		RadarHook::PlayMapMovie("V_001");
+		//RadarHook::PlayMapMovie("V_001");
 		return;
 	}
 };

@@ -16,7 +16,6 @@ public:
 	static void DrawAllGameObjectInfo(bool bFilterNotSelected, bool bFilterNotHouse = true);
 	static void DrawObjectInfo(ObjectClass* obj);
 	static void DrawHouseInfo();
-	static void DrawRadarTest();
 	static void PlayMovie(const char* fileName,
 		int queueTheme = -1,
 		char useHiddenSurface1 = -1,

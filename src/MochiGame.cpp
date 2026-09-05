@@ -217,33 +217,6 @@ void MochiGame::DrawHouseInfo() {
 	withNameHouseIndex.clear();
 };
 
-void MochiGame::DrawRadarTest() {
-	auto pRadar = &RadarClass::Instance;
-	RectangleStruct rect{ *(int*)((uintptr_t)pRadar + 0x11E4), *(int*)((uintptr_t)pRadar + 0x11EC), 160, 110 };
-	Point2D location = { *(int*)((uintptr_t)pRadar + 0x11E4), *(int*)((uintptr_t)pRadar + 0x11EC) };
-	DSurface::Sidebar->FillRect(&rect, COLOR_RED);
-	//MapClass::Instance.RedrawSidebar(0);
-	RectangleStruct bounds{ 0, 0, location.X + 160, location.Y + 110 };
-	//RadarClass::Instance->SetVisibleRect(rect);
-	DSurface::Sidebar->DrawSHP(
-		(ConvertClass*)0xB0FBF8,
-		(SHPStruct*)0xB04A38,
-		32,
-		&location,
-		&bounds,
-		BlitterFlags::bf_400,
-		0,
-		0,
-		ZGradient::Ground,
-		1000,
-		0,
-		nullptr,
-		0,
-		0,
-		0
-	);
-
-};
 
 void MochiGame::PlayMovie(const char* fileName,
 	int queueTheme,
@@ -265,8 +238,6 @@ void MochiGame::PlayMovie(const char* fileName,
 	*(GameMode*)0xA8B238 = gameMode;  //恢复原有游戏模式
 
 };
-
-
 
 //***********************************************Command Functions************************************************
 void MochiGame::SetCurrentPlayerAIControl(bool bCurrentPlayIsAIControl) {

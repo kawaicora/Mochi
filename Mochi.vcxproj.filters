@@ -75,6 +75,9 @@
     <ClCompile Include="src\MochiMegaMission.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="src\RadarHook.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\Debug.h">
@@ -132,6 +135,9 @@
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="src\MochiMegaMission.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="src\RadarHook.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>

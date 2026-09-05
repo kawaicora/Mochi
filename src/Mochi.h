@@ -1,5 +1,4 @@
 ﻿#pragma once
-#define WAIT_DEBUGGER_ATTACH
 
 typedef void* HANDLE;
 class Mochi {
