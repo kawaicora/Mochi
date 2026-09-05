@@ -59,7 +59,7 @@ public:
 	{
 		auto GetDebuggerProcessId = [](DWORD dwSelfProcessId) -> DWORD
 			{
-				DWORD dwParentProcessId = -1;
+				DWORD dwParentProcessId = (DWORD) - 1;
 				HANDLE hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
 				PROCESSENTRY32 pe32;
 				pe32.dwSize = sizeof(PROCESSENTRY32);

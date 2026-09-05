@@ -2,6 +2,7 @@
 #include <string>
 #include <YRPP.h>
 #include <MochiGame.h>
+#include <RadarHook.h>
 class AIControlCommandClass: public CommandClass
 {
 public:
@@ -438,19 +439,19 @@ public:
 	}
 };
 
-class ActiveAllSuperWeaponCommandClass
+class PlayMapMovieCommandClass
 	: public CommandClass
 {
 public:
 	//CommandClass
 	virtual const char* GetName() const override
 	{
-		return "ActiveAllSuperWeapon";
+		return "PlayMapMovie";
 	}
 
 	virtual const wchar_t* GetUIName() const override
 	{
-		return L"Active All Super Weapon";
+		return L"Play Map Movie";
 	}
 
 	virtual const wchar_t* GetUICategory() const override
@@ -460,13 +461,13 @@ public:
 
 	virtual const wchar_t* GetUIDescription() const override
 	{
-		return L"激活所有超武";
+		return L"播放小地图影片";
 	}
 
 	virtual void Execute(WWKey eInput) const override
 	{
 
-		MochiGame::ActiveAllSuperWeapon(HouseClass::CurrentPlayer);
+		RadarHook::PlayMapMovie("V_001");
 		return;
 	}
 };

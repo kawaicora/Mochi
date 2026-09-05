@@ -13,7 +13,6 @@
 #include <MochiEventType.h>
 #include <EventData.h>
 #include <EventHook.h>
-
 HANDLE Mochi::hInstance = 0;
 bool Mochi::isRegistered = false;
 
@@ -112,7 +111,7 @@ void Mochi::RegisterEvent() {
 		
 		//Testing...
 		
-		MakeCommand<ActiveAllSuperWeaponCommandClass>();
+		MakeCommand<PlayMapMovieCommandClass>();
 
 	});
 
@@ -214,9 +213,9 @@ void Mochi::RegisterEvent() {
 		//MochiUtilities::UpdateScript();
 		//MochiUtilities::Render();
 	});
-
+	
 	GeneralHook::LogicClassUpdateEvent.Subscribe([]() {
-		
+
 	});
 
 	GeneralHook::LogicClassUpdateLateEvent.Subscribe([]() {

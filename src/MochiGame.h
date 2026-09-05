@@ -8,6 +8,7 @@
 class MochiGame {
 public:
 	static void ReadINI(const char* file);
+	static double NowSeconds();
 	static std::vector<HouseClass*> GetSelectedObjectOwnerHouse();
 	static void DrawAllFactoryProduction();
 	static void DrawFactoryProduction(FactoryClass* pFactory);

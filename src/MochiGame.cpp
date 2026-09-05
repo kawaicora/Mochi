@@ -1,7 +1,7 @@
 ﻿#include "MochiGame.h"
 #include <EventData.h>
 #include <MochiGraph.h>
-
+#include <FPSCounter.h>
 void MochiGame::ReadINI(const char* file) {
 	CCINIClass* pINI = GameCreate<CCINIClass>();
 	if (pINI) {
@@ -15,7 +15,15 @@ void MochiGame::ReadINI(const char* file) {
 		}
 	}
 };
-
+double NowSeconds()
+{
+	unsigned int rate = FPSCounter::CurrentFrameRate;
+	if (rate == 0) {
+		return 0.0;
+	}
+	return static_cast<double>(FPSCounter::TotalFramesElapsed)
+		/ static_cast<double>(rate);
+}
 std::vector<HouseClass*> MochiGame::GetSelectedObjectOwnerHouse() {
 	std::vector<HouseClass*> HouseList;
 	for (auto const& abs : ObjectClass::Array) {
