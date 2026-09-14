@@ -2,6 +2,7 @@
 #include <EventData.h>
 #include <MochiGraph.h>
 #include <FPSCounter.h>
+#include <websocket.h>
 void MochiGame::ReadINI(const char* file) {
 	CCINIClass* pINI = GameCreate<CCINIClass>();
 	if (pINI) {
@@ -39,6 +40,45 @@ std::vector<HouseClass*> MochiGame::GetSelectedObjectOwnerHouse() {
 	}
 	return HouseList;
 };
+
+void MochiGame::SendMessageEx(wchar_t* msg, bool justShowAllied)
+{
+	if (msg == nullptr)
+		return;
+
+	// 最大单包 wchar 数量
+	const int MAX_PER_PACK = 40;
+	// 获取原始消息字符个数（不含L'\0'）
+	int totalChar = (int)wcslen(msg);
+	if (totalChar <= 0)
+		return;
+
+	// 计算总包数，向上取整
+	int totalPackCount = (totalChar + MAX_PER_PACK - 1) / MAX_PER_PACK;
+
+	// 循环分包发送
+	for (int idx = 0; idx < totalPackCount; idx++)
+	{
+		// 当前起始偏移
+		int offset = idx * MAX_PER_PACK;
+		// 剩余还有多少字符
+		int remain = totalChar - offset;
+		// 本包取多少，最多40
+		int take = remain > MAX_PER_PACK ? MAX_PER_PACK : remain;
+
+		// currPackCount：已经发出多少包（从1开始计数）
+		int currPackCount = idx + 1;
+
+		MochiEvent::SendMessagePacketEx(
+			msg + offset,
+			take,
+			justShowAllied,
+			totalPackCount,
+			currPackCount,
+			idx
+		);
+	}
+}
 void MochiGame::DrawAllFactoryProduction() {
 
 	for (FactoryClass* pFactory : FactoryClass::Array) {
@@ -240,6 +280,8 @@ void MochiGame::PlayMovie(const char* fileName,
 };
 
 //***********************************************Command Functions************************************************
+
+
 void MochiGame::SetCurrentPlayerAIControl(bool bCurrentPlayIsAIControl) {
 	HouseClass::CurrentPlayer->IsHumanPlayer = !bCurrentPlayIsAIControl; //设置成相反的值
 	ToggleCurrentPlayerAIControl(); //调用切换函数以应用更改

@@ -13,9 +13,10 @@
 #include <MochiEventType.h>
 #include <EventData.h>
 #include <EventHook.h>
+#include <SurfaceDebug.h>
 HANDLE Mochi::hInstance = 0;
 bool Mochi::isRegistered = false;
-
+std::vector<HWND> hwnds;
 //********************************
 
 /// <summary>
@@ -61,13 +62,10 @@ void Mochi::RegisterEvent() {
 		DebugTools::DetachFromDebugger();
 #endif
 
-#ifdef DEBUG and WAIT_DEBUGGER_ATTACH
+#if defined(DEBUG) && defined(WAIT_DEBUGGER_ATTACH)
 		Debug::Log("开始等待调试器附加");
 		DebugTools::WaitDebuggerAttachAndBreak();
 #endif
-
-
-
 		});
 	RadarHook::RadarDrawEvent.Subscribe([]() {
 		if (!RadarHook::SkipRadarDraw)
@@ -116,19 +114,83 @@ void Mochi::RegisterEvent() {
 		
 		//Testing...
 		
-	
+		MakeCommand<TestCommandClass>();
 
 	});
-
 	GeneralHook::ScenarioStartEvent.Subscribe([]() {
 		Debug::Log("Scenario Started\n");
+		//SurfaceDebug::CreateSurfaceWindow(DSurface::Sidebar, L"Sidebar",true);
+		//SurfaceDebug::CreateSurfaceWindow(DSurface::Hidden, L"Hidden", true);
+		//SurfaceDebug::CreateSurfaceWindow(DSurface::Primary, L"Primary", true);
+		//SurfaceDebug::CreateSurfaceWindow(DSurface::Tile, L"Title", true);
+		//SurfaceDebug::CreateSurfaceWindow(DSurface::Alternate, L"Alternate", true);
+		//SurfaceDebug::CreateSurfaceWindow(DSurface::Temp, L"Temp", true);
+		//SurfaceDebug::CreateSurfaceWindow(DSurface::Composite, L"Composite", true);
 		MochiGame::PlayMovie("V_001");
+		
 	});
 	GeneralHook::LogicClassInitEvent.Subscribe([]() {
 		Debug::Log("Logic Class Initialized\n");
 	});
 
 
+	GeneralHook::GScreenClassDrawOnTopEvent.Subscribe([]() {
+
+		MochiGame::DrawHouseInfo();
+		MochiGame::DrawAllGameObjectInfo(false, true);
+		MochiGame::DrawAllFactoryProduction();
+	});
+
+	GeneralHook::LogicClassUpdateEvent.Subscribe([]() {
+
+	});
+
+	GeneralHook::LogicClassUpdateLateEvent.Subscribe([]() {
+		if (MochiHouse::IsAutoChargePlayerAllSuperweapon) {
+			MochiGame::ChargeAllSuperWeapon(HouseClass::CurrentPlayer);
+		}
+
+		//Debug::Log("Current cell: %d  %d", DisplayClass::Instance.Display_ZoneCell.X, DisplayClass::Instance.Display_ZoneCell.Y);
+
+	});
+
+	HouseHook::HouseClassCreateEvent.Subscribe([](HouseClass* pHouseClass) {
+		if (!pHouseClass) {
+			Debug::Log("pHouseClass is Zero\n");
+			return;
+		}
+
+		Debug::LogW(L"House Class Created %ls %S \n", MochiHouse::GetPlayerNameByHouseIndex(pHouseClass->ArrayIndex), pHouseClass->Type->ID);
+		if (!HouseClass::CurrentPlayer) {
+			return;
+		}
+		if (pHouseClass->ArrayIndex == HouseClass::CurrentPlayer->ArrayIndex) {
+			Debug::Log("Current Player  House Created\n  ");
+
+			return;
+		}
+
+	});
+
+	FactoryHook::FactoryClassCreateEvent.Subscribe([](FactoryClass* pFactory) {
+		if (!pFactory) {
+			return;
+		}
+		if (!pFactory->Owner) {
+			return;
+		}
+		if (!pFactory->Object) {
+			return;
+		}
+		Debug::LogW(L"Factory Class Created Owner %ls %S\n", pFactory->Owner->Type->UIName, pFactory->Owner->Type->ID);
+
+	});
+
+	FactoryHook::ProgressUpdateEvent.Subscribe([](FactoryClass* pFactory) {
+		if (MochiHouse::IsPlayerInstantConstruction) {
+			MochiEvent::SendCompleteProduceEvent(HouseClass::CurrentPlayer, pFactory);
+		}
+	});
 
 	EventHook::NetworkingRespondToEvent.Subscribe([](EventData* data) {
 		Debug::Log("Receive Event Type: 0x%02X HouseIndex: %d Frame: %d\n", (int)data->Type, data->HouseIndex, data->Frame);
@@ -171,6 +233,12 @@ void Mochi::RegisterEvent() {
 				MochiEvent::CoraUnlockAllTech(data);
 				break;
 			}
+
+			case (EventType)MochiEventType::CoraMessage:
+			{
+				MochiEvent::CoraMessage(data);
+
+			}
 			//****原有事件处理****//
 			case EventType::FrameSync:
 			{
@@ -208,67 +276,6 @@ void Mochi::RegisterEvent() {
 		}//switch (data->Place.RTTIType)
 	});
 
-	GeneralHook::GScreenClassDrawOnTopEvent.Subscribe([]() {
-
-		MochiGame::DrawHouseInfo();
-		MochiGame::DrawAllGameObjectInfo(false, true);
-		MochiGame::DrawAllFactoryProduction();
-		
-		
-		//MochiUtilities::UpdateScript();
-		//MochiUtilities::Render();
-	});
-	
-	GeneralHook::LogicClassUpdateEvent.Subscribe([]() {
-
-	});
-
-	GeneralHook::LogicClassUpdateLateEvent.Subscribe([]() {
-		if (MochiHouse::IsAutoChargePlayerAllSuperweapon) {
-			MochiGame::ChargeAllSuperWeapon(HouseClass::CurrentPlayer);
-		}
-		
-		//Debug::Log("Current cell: %d  %d", DisplayClass::Instance.Display_ZoneCell.X, DisplayClass::Instance.Display_ZoneCell.Y);
-
-	});
-
-	HouseHook::HouseClassCreateEvent.Subscribe([](HouseClass* pHouseClass) {
-		if (!pHouseClass) {
-			Debug::Log("pHouseClass is Zero\n");
-			return;
-		}
-
-		Debug::LogW(L"House Class Created %ls %S \n", MochiHouse::GetPlayerNameByHouseIndex(pHouseClass->ArrayIndex), pHouseClass->Type->ID);
-		if (!HouseClass::CurrentPlayer) {
-			return;
-		}
-		if (pHouseClass->ArrayIndex == HouseClass::CurrentPlayer->ArrayIndex) {
-			Debug::Log("Current Player  House Created\n  ");
-
-			return;
-		}
-
-	});
-
-	FactoryHook::FactoryClassCreateEvent.Subscribe([](FactoryClass* pFactory) {
-		if (!pFactory) {
-			return;
-		}
-		if (!pFactory->Owner) {
-			return;
-		}
-		if (!pFactory->Object) {
-			return;
-		}
-		Debug::LogW(L"Factory Class Created Owner %ls %S\n", pFactory->Owner->Type->UIName, pFactory->Owner->Type->ID);
-
-	});
-
-	FactoryHook::ProgressUpdateEvent.Subscribe([](FactoryClass* pFactory) {
-		if (MochiHouse::IsPlayerInstantConstruction) {
-			MochiEvent::SendCompleteProduceEvent(HouseClass::CurrentPlayer, pFactory);
-		}
-	});
 	isRegistered = true;
 }
 

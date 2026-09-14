@@ -32,6 +32,7 @@
     <ClCompile Include="src\MochiGraph.cpp" />
     <ClCompile Include="src\MochiMegaMission.cpp" />
     <ClCompile Include="src\MochiTechno.cpp" />
+    <ClCompile Include="src\SurfaceDebug.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\Debug.h" />
@@ -54,6 +55,7 @@
     <ClInclude Include="src\MochiMegaMission.h" />
     <ClInclude Include="src\MochiTechno.h" />
     <ClInclude Include="src\MochiCommandClass.h" />
+    <ClInclude Include="src\SurfaceDebug.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="src\EventSystem.inl" />
@@ -123,7 +125,7 @@
     <ClCompile>
       <WarningLevel>Level4</WarningLevel>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>DEBUG;DEBUGGER_AUTO_BREAK;SYR_VER=2;HAS_EXCEPTIONS=0;NOMINMAX;_CRT_SECURE_NO_WARNINGS;_WIN32_WINNT=0x0601;NTDDI_VERSION=0x06010000;%(PreprocessorDefinitions);%(AdditionalDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>DEBUG;SYR_VER=2;HAS_EXCEPTIONS=0;NOMINMAX;_CRT_SECURE_NO_WARNINGS;_WIN32_WINNT=0x0601;NTDDI_VERSION=0x06010000;%(PreprocessorDefinitions);%(AdditionalDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>

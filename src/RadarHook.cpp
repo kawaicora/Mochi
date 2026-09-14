@@ -31,28 +31,46 @@ void RadarHook::DrawRadar()
 void RadarHook::DrawBoard()
 {
 	auto pRadar = (uintptr_t)&RadarClass::Instance;
+	Point2D drawPos{ 0,0};
+	RectangleStruct bounds  = DSurface::Sidebar->GetRect();
+	int frameIdx = 0;
 
-	SHPStruct* radarSHP = FileSystem::LoadSHPFile("radar.shp");
+	//Draw 0,0
 
-	if (radarSHP == nullptr) {
+	drawPos = { 0,0 };
+	//SHP w = 168 h = 16  
+	//DrawFrameIndex = 0
+
+
+
+	//Draw
+	drawPos = { 11,20 };
+	//SHP w 72, h 18
+
+
+	drawPos = { 83,20 };
+
+	//Draw
+	drawPos = { 0,48 };
+	//SHP w 168, h 110
+
+	SHPStruct* board = (SHPStruct*)0x1919B850;
+
+
+	if (board == nullptr) {
 		Debug::Log("DrawBoard: radar.shp failed to load, skip\n");
 		return;
 	}
-	const int borderFrame = 32;   // 最后一帧 = 边框
-
-	RectangleStruct lastBounds{ 0,0 , 128,720 };
-	Point2D framePos{ 0,48 };
-
-	//Debug::Log("DrawBoard: frameCount=%d drawing frame=%d\n", frameCount, borderFrame);
 
 	
+
 	CC_Draw_Shape(
 		(Surface*)DSurface::Sidebar,
 		FileSystem::SIDEBAR_PAL,
-		radarSHP,
-		borderFrame,
-		&framePos,
-		&lastBounds,
+		board,
+		32,
+		&drawPos,
+		&bounds,
 		(BlitterFlags)0,
 		0,
 		0,

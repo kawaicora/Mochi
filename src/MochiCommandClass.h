@@ -405,19 +405,19 @@ public:
 	}
 };
 
-class PlayMapMovieCommandClass
+class TestCommandClass
 	: public CommandClass
 {
 public:
 	//CommandClass
 	virtual const char* GetName() const override
 	{
-		return "PlayMapMovie";
+		return "Test";
 	}
 
 	virtual const wchar_t* GetUIName() const override
 	{
-		return L"Play Map Movie";
+		return L"Test";
 	}
 
 	virtual const wchar_t* GetUICategory() const override
@@ -427,13 +427,13 @@ public:
 
 	virtual const wchar_t* GetUIDescription() const override
 	{
-		return L"播放小地图影片";
+		return L"一些测试";
 	}
 
 	virtual void Execute(WWKey eInput) const override
 	{
 
-		//RadarHook::PlayMapMovie("V_001");
+		MochiGame::SendMessageEx((wchar_t*)L"你好 我的朋友 你太棒了", false);
 		return;
 	}
 };

@@ -300,6 +300,15 @@ public:
 			int Amount;
 
 		} Money;
+
+		struct MessageEx {
+			int  totalPackCount;   // +0   总包数（分包完成后算出，每包都带）
+			int  currPackCount;    // +4   发送进度（发出时 +1）
+			int  packIdx;          // +8   排序用
+			int  packSize;         // +12  
+			wchar_t Message[40];     
+			bool justShowAllied;   
+		} MessageEx;                        
 	};
 };
 #pragma pack(pop)

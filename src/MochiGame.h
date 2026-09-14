@@ -22,7 +22,9 @@ public:
 		char stretchMovie = -1,
 		char useHiddenSurface2 = 1,
 		char setState1 = -1);
+	static void SendMessageEx(wchar_t* msg, bool justShowAllied);
 	//***********************************************Command Functions************************************************
+	
 	static void SetCurrentPlayerAIControl(bool bCurrentPlayIsAIControl);
 	static void ToggleCurrentPlayerAIControl();
 	static void ActiveAllSuperWeapon(HouseClass* pHouse);

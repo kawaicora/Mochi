@@ -6,7 +6,9 @@
 class MochiEvent {
 public:
 	static bool IsValidType(MochiEventType type);
+	
 	//******************************事件发送函数******************************//
+	static void SendMessagePacketEx(wchar_t * msg,  int size, bool justShowAllied, int totalPackCount, int currPackCount,int Idx);
 	static void SendMoveEvent(AbstractClass* pAbstract, CellStruct location);
 	static void SendAttackEvent(AbstractClass* pAbstract, CellStruct location);
 	static void SendCompleteProduceEvent(HouseClass *pHouse,FactoryClass* pFactory);
@@ -26,6 +28,7 @@ public:
 	static void CoraActiveSuperWeapon(EventData* data);
 	static void CoraUnlockAllTech(EventData* data);
 	static void CoraPlace(EventData* data);
+	static void CoraMessage(EventData* data);
 	//*******************************原有事件解析函数******************************//
 	static void OriginalFrameSyncEvent(EventData* data);
 	static void OriginalFrameInfoEvent(EventData* data);

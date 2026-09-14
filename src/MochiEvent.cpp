@@ -4,7 +4,11 @@
 #include <MochiTechno.h>
 #include <MochiFactory.h>
 #include <MochiMegaMission.h>
+#include <unordered_set>
 //******************************事件发送函数******************************//
+
+
+
 void MochiEvent::SendMoveEvent(AbstractClass* pAbstract,CellStruct location) {
 	if (CellClass* pCell = MapClass::Instance.TryGetCellAt(location)) {
 
@@ -41,6 +45,32 @@ void MochiEvent::SendAttackEvent(AbstractClass* pAbstract, CellStruct location) 
 	}
 
 }
+
+
+void MochiEvent::SendMessagePacketEx(wchar_t* msg, int size, bool justShowAllied, int totalPackCount, int currPackCount, int idx)
+{
+	EventData* event = EventData::EventClass_CTOR();
+	event->Type = (EventType)MochiEventType::CoraMessage;
+
+	event->MessageEx.totalPackCount = totalPackCount;
+	event->MessageEx.currPackCount = currPackCount;
+	event->MessageEx.packIdx = idx;
+	event->MessageEx.justShowAllied = justShowAllied;
+
+	// 兜底保护，防止上层传错size
+	int copyCnt = size;
+	if (copyCnt < 0) copyCnt = 0;
+	if (copyCnt > 40) copyCnt = 40;
+	event->MessageEx.packSize = copyCnt;
+
+	if (copyCnt > 0)
+	{
+		memcpy(event->MessageEx.Message, msg, copyCnt * sizeof(wchar_t));
+	}
+
+	event->AddEvent();
+}
+
 
 void MochiEvent::SendCompleteProduceEvent(HouseClass* pHouse, FactoryClass* pFactory) {
 	if (!pFactory) {
@@ -194,6 +224,72 @@ void MochiEvent::CoraMoneyChange(EventData* data) {
 	pHouse->TransactMoney(data->Money.Amount);
 
 };
+
+
+
+//
+
+
+// 静态缓存（类/全局）
+static std::vector<wchar_t> g_msgBuffer;
+static std::unordered_set<int> g_recvIdxSet;
+static int g_expectedTotalPack = 0;
+
+void MochiEvent::CoraMessage(EventData* data)
+{
+	Debug::LogW(L"***************************************CoraMessage*************************************************\n");
+	HouseClass* pHouse = HouseClass::Array[data->HouseIndex];
+	const wchar_t* name  = MochiHouse::GetPlayerNameByHouseIndex(data->HouseIndex);
+	// 全部直接访问 data->MessageEx.成员，不再定义 MessageEx* pkt 指针
+	int totalPack = data->MessageEx.totalPackCount;
+	int packIdx = data->MessageEx.packIdx;
+	int packSize = data->MessageEx.packSize;
+	int currPack = data->MessageEx.currPackCount;
+
+	// 非法包过滤
+	if (totalPack <= 0 || packIdx < 0 || packSize < 0 || packSize >40)
+	{
+		return;
+	}
+
+	// 新消息，重置缓存
+	if (g_expectedTotalPack != totalPack)
+	{
+		g_msgBuffer.clear();
+		g_recvIdxSet.clear();
+		g_expectedTotalPack = totalPack;
+	}
+
+	// 重复包直接丢弃
+	if (g_recvIdxSet.count(packIdx))
+	{
+		return;
+	}
+	g_recvIdxSet.insert(packIdx);
+
+	// 追加当前分片的wchar字符
+	g_msgBuffer.insert(g_msgBuffer.end(), &data->MessageEx.Message[0], &data->MessageEx.Message[packSize]);
+
+	// 收齐全部分包
+	if (g_recvIdxSet.size() == g_expectedTotalPack)
+	{
+		g_msgBuffer.push_back(L'\0');
+		Debug::LogW(L"%ls 说: %ls",name, g_msgBuffer.data());
+
+		// 清空，准备下一条消息
+		g_msgBuffer.clear();
+		g_recvIdxSet.clear();
+		g_expectedTotalPack = 0;
+	}
+}
+
+//
+
+
+
+
+
+
 
 void MochiEvent::CoraCompleteProduction(EventData* data) {
 	Debug::LogW(L"***************************************CoraCompleteProduction*************************************************\n");

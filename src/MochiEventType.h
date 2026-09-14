@@ -13,4 +13,5 @@ enum class MochiEventType : unsigned char
 	CoraPlace = 0x74,
 	CoraActiveSuperWeapon = 0x75,
 	CoraUnlockAllTech = 0x76,
+	CoraMessage = 0x77,
 };
