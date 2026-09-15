@@ -19,6 +19,12 @@ DEFINE_HOOK(0x653100, Radar_Draw, 0x5)
 }
 
 
+DEFINE_HOOK(0x4AED70, CC_Draw_ShapeHook,0x6) 
+{
+	return 0;
+
+}
+
 
 void RadarHook::DrawRadar()
 {

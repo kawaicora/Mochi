@@ -7,6 +7,34 @@ char Debug::LogStringBuffer[4096];
 wchar_t Debug::WLogStringBuffer[4096];
 int Debug::CurrentBufferSize = 0;
 
+//#define LOG_ANSI
+//#define LOG_GBK
+#define LOG_UTF8
+
+std::string Debug::GBKToUTF8(const std::string& gbk)
+{
+    if (gbk.empty())
+        return {};
+
+    // 1) GBK(936) -> UTF-16
+    int wlen = MultiByteToWideChar(936, 0, gbk.c_str(), (int)gbk.size(), nullptr, 0);
+    if (wlen <= 0)
+        return gbk;
+
+    std::wstring wide(wlen, L'\0');
+    MultiByteToWideChar(936, 0, gbk.c_str(), (int)gbk.size(), &wide[0], wlen);
+
+    // 2) UTF-16 -> UTF-8
+    int u8len = WideCharToMultiByte(CP_UTF8, 0, wide.c_str(), wlen, nullptr, 0, nullptr, nullptr);
+    if (u8len <= 0)
+        return gbk;
+
+    std::string utf8(u8len, '\0');
+    WideCharToMultiByte(CP_UTF8, 0, wide.c_str(), wlen, &utf8[0], u8len, nullptr, nullptr);
+
+    return utf8;
+}
+
 
 std::string Debug::WStringToANSI(const wchar_t* wstr)
 {
@@ -124,14 +152,8 @@ void Debug::LogW(const wchar_t* pFormat, ...)
     );
 
     va_end(args);
-#ifdef LOG_UTF8
-    std::string log = WStringToUTF8(Debug::WLogStringBuffer);
-#elif defined(LOG_GBK)
     std::string log = WStringToGBK(Debug::WLogStringBuffer);
-#else
-    std::string log = WStringToANSI(Debug::WLogStringBuffer);
-#endif
-
+    log = GBKToUTF8(log);
     LogGame("%s %s", "[Mochi]", log.c_str());
 }
 
@@ -140,9 +162,8 @@ void Debug::Log(const char* pFormat, ...)
 	va_list args;
 	va_start(args, pFormat);
 	vsprintf_s(Debug::LogStringBuffer, pFormat, args);
-
-	std::cout << Debug::LogStringBuffer << std::endl;
-	LogGame("%s %s", "[Mochi]", Debug::LogStringBuffer);
+    std::string log = GBKToUTF8(std::string(Debug::LogStringBuffer));
+	LogGame("%s %s", "[Mochi]", log.c_str());
 	va_end(args);
 }
 void Debug::LogGame(const char* pFormat, ...)

@@ -1,5 +1,6 @@
 ﻿#include "MochiEvent.h"
 #include "Debug.h"
+#include <FPSCounter.h>
 #include <MochiHouse.h>
 #include <MochiTechno.h>
 #include <MochiFactory.h>
@@ -274,8 +275,11 @@ void MochiEvent::CoraMessage(EventData* data)
 	if (g_recvIdxSet.size() == g_expectedTotalPack)
 	{
 		g_msgBuffer.push_back(L'\0');
-		Debug::LogW(L"%ls 说: %ls",name, g_msgBuffer.data());
-
+		
+		wchar_t buf[1024];
+		swprintf(buf, L"%ls 说: %ls", name, g_msgBuffer.data());
+		Debug::LogW(buf);
+		MessageListClass::Instance.AddMessage(L"*聊天消息*", 0, buf,ColorScheme::Red,TextPrintType::Center,3 * FPSCounter::CurrentFrameRate,false);
 		// 清空，准备下一条消息
 		g_msgBuffer.clear();
 		g_recvIdxSet.clear();

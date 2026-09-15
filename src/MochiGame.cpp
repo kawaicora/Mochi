@@ -16,7 +16,8 @@ void MochiGame::ReadINI(const char* file) {
 		}
 	}
 };
-double NowSeconds()
+
+double MochiGame::NowSeconds()
 {
 	unsigned int rate = FPSCounter::CurrentFrameRate;
 	if (rate == 0) {

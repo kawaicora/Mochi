@@ -2,15 +2,14 @@
 #include <Windows.h>
 #include <cstdarg>
 #include <string>
-#define LOG_ANSI
-//#define LOG_GBK
-//#define LOG_UTF8
+
 class Debug {
 public:
 	static void Log(const char* pFormat, ...);
 	static void LogGame(const char* pFormat, ...);
 	static std::string WStringToUTF8(const wchar_t* wstr);
 	static std::string WStringToGBK(const wchar_t* wstr);
+	static std::string GBKToUTF8(const std::string& gbk);
 	static std::string WStringToANSI(const wchar_t* wstr);
 	static void LogW(const wchar_t* pFormat, ...);
 	

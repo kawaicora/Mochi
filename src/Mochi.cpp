@@ -70,18 +70,18 @@ void Mochi::RegisterEvent() {
 	RadarHook::RadarDrawEvent.Subscribe([]() {
 		if (!RadarHook::SkipRadarDraw)
 		{
-			RadarHook::SkipRadarDraw = true;
-			Debug::Log("禁用小地图");
+			//RadarHook::SkipRadarDraw = true;
+			//Debug::LogW("禁用小地图");
 
 		}
 		else {
-			RadarHook::DrawRadar();
+			//RadarHook::DrawRadar();
 		}
 			
 	});
 
 	GeneralHook::CmdLineParseEvent.Subscribe([](GeneralHook::CmdLineArgs args) {
-		Debug::Log("Moshi 挂载成功 QvQ\n");
+		Debug::LogW(L"Mochi 挂载成功 QvQ\n");
 		Debug::Log("###############################INILoadConfig######################################\n");
 		MochiINI::INIReader.LoadINI("mochi.ini");
 		MochiINI::PlayerBaseConfig = (MochiINI::Section*)MochiINI::INIReader.GetSection("PlayerBaseConfig");
@@ -119,14 +119,14 @@ void Mochi::RegisterEvent() {
 	});
 	GeneralHook::ScenarioStartEvent.Subscribe([]() {
 		Debug::Log("Scenario Started\n");
-		//SurfaceDebug::CreateSurfaceWindow(DSurface::Sidebar, L"Sidebar",true);
+		SurfaceDebug::CreateSurfaceWindow(DSurface::Sidebar, L"Sidebar",true);
 		//SurfaceDebug::CreateSurfaceWindow(DSurface::Hidden, L"Hidden", true);
 		//SurfaceDebug::CreateSurfaceWindow(DSurface::Primary, L"Primary", true);
 		//SurfaceDebug::CreateSurfaceWindow(DSurface::Tile, L"Title", true);
 		//SurfaceDebug::CreateSurfaceWindow(DSurface::Alternate, L"Alternate", true);
 		//SurfaceDebug::CreateSurfaceWindow(DSurface::Temp, L"Temp", true);
 		//SurfaceDebug::CreateSurfaceWindow(DSurface::Composite, L"Composite", true);
-		MochiGame::PlayMovie("V_001");
+		//MochiGame::PlayMovie("V_001");
 		
 	});
 	GeneralHook::LogicClassInitEvent.Subscribe([]() {
