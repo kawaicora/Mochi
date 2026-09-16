@@ -4,6 +4,7 @@
 #include <YRPP.h>
 Event<> GeneralHook::YRBootEvent;
 Event<GeneralHook::CmdLineArgs> GeneralHook::CmdLineParseEvent;
+Event<const char*, va_list> GeneralHook::DebugLogEvent;
 Event<> GeneralHook::ExeTerminateEvent;
 Event<> GeneralHook::LogicClassInitEvent;
 Event<> GeneralHook::ScenarioStartEvent;
@@ -15,9 +16,24 @@ Event<> GeneralHook::GScreenClassDrawOnTopEvent;
 
 
 DEFINE_HOOK(0x4068E0, DebugLog, 0x0) {
-
 	return 0x4A4AC0;
 }
+
+DEFINE_HOOK(0x4A4AF9, DebugLogRet, 1)
+{
+	try {
+		LEA_STACK(va_list const, args, 0x8);
+		GET_STACK(const char* const, pFormat, 0x4);
+
+		GeneralHook::DebugLogEvent.Invoke(pFormat, args);
+
+	}
+	catch(...){
+	
+	}
+	return 0x4A4E96;
+}
+
 
 DEFINE_HOOK(0x7CD810, YRBoot, 0x9)
 {

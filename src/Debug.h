@@ -12,6 +12,7 @@ public:
 	static std::string GBKToUTF8(const std::string& gbk);
 	static std::string WStringToANSI(const wchar_t* wstr);
 	static void LogW(const wchar_t* pFormat, ...);
+	static bool CreateConsoleAndSetUTF8();
 	
 	static char LogStringBuffer[4096];
 	static wchar_t WLogStringBuffer[4096];

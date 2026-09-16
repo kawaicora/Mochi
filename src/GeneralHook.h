@@ -17,5 +17,6 @@ public:
 	static Event<> LogicClassUpdateLateEvent;
 	static Event<> GScreenClassDrawOnTopEvent;
 	static Event<GeneralHook::CmdLineArgs> CmdLineParseEvent;
+	static Event<const char*, va_list> DebugLogEvent;
 	
 };

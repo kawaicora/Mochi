@@ -14,9 +14,11 @@
 #include <EventData.h>
 #include <EventHook.h>
 #include <SurfaceDebug.h>
+#include <iostream>
 HANDLE Mochi::hInstance = 0;
 bool Mochi::isRegistered = false;
 std::vector<HWND> hwnds;
+HWND p;
 //********************************
 
 /// <summary>
@@ -48,6 +50,9 @@ bool __stdcall DllMain(HANDLE hInstance, DWORD dwReason, LPVOID v)
 	}
 	return true;
 }
+
+
+
 /// <summary>
 /// 注册事件
 /// </summary>
@@ -55,17 +60,34 @@ void Mochi::RegisterEvent() {
 	if (isRegistered) {
 		return;
 	}
-	GeneralHook::YRBootEvent.Subscribe([]() {
-		Debug::Log("Moshi Booted Successfully QvQ\n");
-#ifdef DEBUG 
-		//MessageBoxW(NULL, L"按下确认后开始等待调试器附加\n附加后自动触发断点", L"确认", MB_OK);
-		DebugTools::DetachFromDebugger();
+#ifdef DEBUG
+	DebugTools::DetachFromDebugger();
 #endif
 
 #if defined(DEBUG) && defined(WAIT_DEBUGGER_ATTACH)
-		Debug::Log("开始等待调试器附加");
-		DebugTools::WaitDebuggerAttachAndBreak();
+	Debug::Log("开始等待调试器附加");
+	DebugTools::WaitDebuggerAttachAndBreak();
 #endif
+
+#ifdef DEBUG_LOG_CONSOLE
+	Debug::CreateConsoleAndSetUTF8();
+	GeneralHook::DebugLogEvent.Subscribe([](const char* pFormat,va_list pArg) {
+		char buf[2048] = { 0 };
+		__try
+		{
+			vsprintf_s(buf, pFormat, pArg); // MSVC三参数模板重载，Ares同款
+		}
+		__except (EXCEPTION_EXECUTE_HANDLER)
+		{
+			strcpy(buf, "[Mochi ERROR: Bad format string]");
+		}
+		std::cout << buf;
+	});
+#endif
+
+	GeneralHook::YRBootEvent.Subscribe([]() {
+		Debug::Log("Moshi Booted Successfully QvQ\n");
+
 		});
 	RadarHook::RadarDrawEvent.Subscribe([]() {
 		if (!RadarHook::SkipRadarDraw)
@@ -77,7 +99,7 @@ void Mochi::RegisterEvent() {
 		else {
 			//RadarHook::DrawRadar();
 		}
-			
+		//SurfaceDebug::RenderSurfaceWindow(p);
 	});
 
 	GeneralHook::CmdLineParseEvent.Subscribe([](GeneralHook::CmdLineArgs args) {
@@ -117,9 +139,10 @@ void Mochi::RegisterEvent() {
 		MakeCommand<TestCommandClass>();
 
 	});
+	
 	GeneralHook::ScenarioStartEvent.Subscribe([]() {
 		Debug::Log("Scenario Started\n");
-		SurfaceDebug::CreateSurfaceWindow(DSurface::Sidebar, L"Sidebar",true);
+		//p = SurfaceDebug::CreateSurfaceWindow(DSurface::Sidebar, L"Sidebar",false);
 		//SurfaceDebug::CreateSurfaceWindow(DSurface::Hidden, L"Hidden", true);
 		//SurfaceDebug::CreateSurfaceWindow(DSurface::Primary, L"Primary", true);
 		//SurfaceDebug::CreateSurfaceWindow(DSurface::Tile, L"Title", true);
