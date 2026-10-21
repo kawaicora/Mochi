@@ -1,20 +1,19 @@
 ﻿//=============================================================================
 //  DrawCapture.cpp  —  逻辑只管逻辑，渲染只管渲染
 //  ---------------------------------------------------------------------------
-//  【像素级一致的做法】
-//    不重写任何绘制！只把 Surface::Lock 返回的指针换成我们自己的内存，
-//    原版 CC_Draw_Shape / blitter / 全部绘制代码原封不动地画进这块内存。
+//  【像素级一致】
+//    不重写任何绘制。只把 Surface::Lock 返回的指针换成我们自己的常驻内存，
+//    原版 CC_Draw_Shape / 全部 blitter 原封不动地画进这块内存。
 //    跑的是原版代码 => 画面与原本像素级一致。
 //
-//  【两条路径，都能让预览窗看到"和原本一样"的画面】
-//    A) vtable 探针成功  -> 重定向 Lock/Unlock/IsLocked/CanLock，
-//                           DDraw 不再提交，像素落在我们的常驻缓冲
-//    B) vtable 探针失败  -> 不重定向（安全失败），预览窗退化为
-//                           用原版 Lock/Unlock 直读真实 DDraw surface
-//    两条路上预览窗看到的都是**真实渲染结果**，不是重新光栅化的近似。
+//  【本版新增：自诊断 + 自动选面对】
+//    引擎最终可能是用 DDraw Blt 把 Hidden/Composite 推到 Primary 的，
+//    那条路绕过所有 Surface 虚函数，Primary 的 scratch 就会一直是空的。
+//    所以这里对每块缓冲采样非零像素数，GetFrame 返回"最满"的那块，
+//    并在每个逻辑帧打印一次各面的填充率 —— 一眼看出画面落在哪。
 //
 //  【性能契约：逻辑 100% 全速】
-//    热路径：一次线性查表 + 指针加法 + 返回。无锁/无分配/无系统调用/无日志。
+//    热路径只有查表 + 指针加法。无锁/无分配/无系统调用/无日志。
 //=============================================================================
 
 #include "DrawCapture.h"
@@ -29,7 +28,7 @@ namespace {
 
 using namespace DrawCaptureProto;
 
-constexpr uint32_t kPixelOffset = 4096;			// 共享内存里像素数据的起始偏移
+constexpr uint32_t kPixelOffset = 4096;
 constexpr int      kMaxSurfSlot = 8;
 
 // ---- 状态 ------------------------------------------------------------------
@@ -41,21 +40,25 @@ struct SurfScratch
 	int			Pitch;
 	int			Bpp;
 	int			W, H;
-	bool		InShared;		// true = 这块缓冲在共享内存里（Primary）
+	bool		InShared;
+	const char*	Name;
+	uint32_t	NonZero;		// 采样得到的非零像素数（填充率参考）
 };
 
 SurfScratch	g_scr[kMaxSurfSlot];
 int			g_scrN = 0;
 
-void*		g_sharedBase = nullptr;		// 共享内存映射基址
+void*		g_sharedBase = nullptr;
 HANDLE		g_map = nullptr;
 FrameInfo*	g_info = nullptr;
 
 uint64_t	g_locks = 0;
-uint64_t	g_unlocksSkipped = 0;
+uint64_t	g_unlocks = 0;
+uint64_t	g_blits = 0;
 uint64_t	g_frames = 0;
 bool		g_installed = false;
-int			g_delta = 0;				// vtable 索引修正
+int			g_delta = 0;
+uint64_t	g_lastStatTick = 0;
 
 // ---- 热路径 ----------------------------------------------------------------
 __forceinline SurfScratch* FindScratch(Surface* s) noexcept
@@ -69,8 +72,6 @@ __forceinline SurfScratch* FindScratch(Surface* s) noexcept
 // ---- vtable 探针（安全版）--------------------------------------------------
 using Fn = void(*)();
 
-// 关键修复：不再在 __except 里 continue，改为独立函数返回哨兵；
-// 并且把 EDX 显式置 0，避免 GetRect 之类拿垃圾指针写坏内存。
 static int SafeCall(Fn fn, void* self) noexcept
 {
 	__try
@@ -95,7 +96,7 @@ static bool LocateAnchor(void** vt, Surface* s, int& delta) noexcept
 
 	Debug::Log("[DrawCapture] probing vtable, expect %dx%d\n", wantW, wantH);
 
-	// 严格只试 GetWidth/GetHeight 可能落下的纯 getter 槽位。
+	// 只试 GetWidth/GetHeight 可能落下的纯 getter 槽位。
 	// 绝不 20..48 全扫 —— 那会调到 DrawLine_/DrawRectEx/DrawGradientLine
 	// 这类要指针参数的函数，用垃圾指针写内存会把游戏直接搞崩。
 	static const int kCand[] = { 31, 32, 30, 29 };
@@ -104,10 +105,10 @@ static bool LocateAnchor(void** vt, Surface* s, int& delta) noexcept
 		const int i = kCand[c];
 		const int w = SafeCall((Fn)vt[i], s);
 		const int h = SafeCall((Fn)vt[i + 1], s);
-		Debug::Log("[DrawCapture]   slot %2d -> %d , %d\n", i, w, h);
+		Debug::Log("[DrawCapture]   slot %d -> %d , %d\n", i, w, h);
 		if (w == wantW && h == wantH)
 		{
-			delta = i - 31;			// 31 = YRpp 里 GetWidth 的声明序号
+			delta = i - 31;
 			Debug::Log("[DrawCapture] anchor FOUND at slot %d (delta=%d)\n", i, delta);
 			return true;
 		}
@@ -115,7 +116,7 @@ static bool LocateAnchor(void** vt, Surface* s, int& delta) noexcept
 	return false;
 }
 
-// ---- 取 pitch/bpp（读 DDraw surface 描述，不依赖 vtable）-------------------
+// ---- 取 pitch/bpp ----------------------------------------------------------
 static void QueryFormat(Surface* s, int& pitch, int& bpp, int& w, int& h) noexcept
 {
 	w = s->Width;
@@ -146,7 +147,7 @@ static void QueryFormat(Surface* s, int& pitch, int& bpp, int& w, int& h) noexce
 		pitch = w * 2;
 }
 
-// ---- 挂钩实现（只替换 4 个锁相关虚函数，其余全部保留原样）------------------
+// ---- 挂钩实现 --------------------------------------------------------------
 static void* __fastcall Hook_Lock(void* self, void* /*edx*/, int X, int Y)
 {
 	++g_locks;
@@ -158,14 +159,14 @@ static void* __fastcall Hook_Lock(void* self, void* /*edx*/, int X, int Y)
 	if (off < 0)
 		off = 0;
 	if ((size_t)off >= sc->Cap)
-		off = 0;					// 越界保护：回退到缓冲起点
+		off = 0;
 	return sc->Buf + off;
 }
 
 static bool __fastcall Hook_Unlock(void* /*self*/, void* /*edx*/)
 {
-	++g_unlocksSkipped;
-	return true;					// 不提交、不 Blit
+	++g_unlocks;
+	return true;
 }
 
 static bool __fastcall Hook_IsLocked(void* /*self*/, void* /*edx*/)
@@ -173,6 +174,12 @@ static bool __fastcall Hook_IsLocked(void* /*self*/, void* /*edx*/)
 	return false;
 }
 
+static bool __fastcall Hook_CanLock(void* /*self*/, void* /*edx*/, DWORD, DWORD)
+{
+	return true;
+}
+
+// ---- CPU 拷贝：替代走不通的 DDraw Blt --------------------------------------
 static void BlitScratch(SurfScratch* d, SurfScratch* s, int dx, int dy, int sx, int sy, int w, int h)
 {
 	if (!d || !s || !d->Buf || !s->Buf)
@@ -198,6 +205,7 @@ static void BlitScratch(SurfScratch* d, SurfScratch* s, int dx, int dy, int sx, 
 		uint8_t* dp = d->Buf + (size_t)(dy + y) * (size_t)d->Pitch + (size_t)dx * bpp;
 		memcpy(dp, sp, rowBytes);
 	}
+	++g_blits;
 }
 
 static bool __fastcall Hook_CopyFromWhole(void* self, void* /*edx*/, Surface* pSrc, bool, bool)
@@ -239,17 +247,8 @@ static bool __fastcall Hook_CopyFrom(void* self, void* /*edx*/,
 	return true;
 }
 
-static bool __fastcall Hook_CanLock(void* /*self*/, void* /*edx*/, DWORD, DWORD)
-{
-	return true;
-}
-
 // ---- vtable 补丁 -----------------------------------------------------------
-struct Patch
-{
-	void**	Orig;
-	Fn*		Patched;
-};
+struct Patch { void** Orig; Fn* Patched; };
 Patch	g_patch[8];
 int		g_patchN = 0;
 
@@ -263,8 +262,6 @@ int		g_patchN = 0;
 
 static Fn* BuildPatchedVtbl(void** orig)
 {
-	// 只改 4 个槽：Lock / Unlock / CanLock / IsLocked。
-	// 其余（含所有绘制原语与 CC_Draw_Shape 的调用方）保持原版 —— 这是像素一致的前提。
 	const int n = 40;
 	Fn* t = (Fn*)HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(Fn) * n);
 	if (!t)
@@ -272,17 +269,17 @@ static Fn* BuildPatchedVtbl(void** orig)
 	for (int i = 0; i < n; ++i)
 		t[i] = (Fn)orig[i];
 
-	t[VS_LOCK + g_delta]     = (Fn)&Hook_Lock;
-	t[VS_UNLOCK + g_delta]   = (Fn)&Hook_Unlock;
-	t[VS_CANLOCK + g_delta]  = (Fn)&Hook_CanLock;
-	t[VS_ISLOCKED + g_delta] = (Fn)&Hook_IsLocked;
 	t[VS_COPYFROMWHOLE + g_delta] = (Fn)&Hook_CopyFromWhole;
 	t[VS_COPYFROMPART + g_delta]  = (Fn)&Hook_CopyFromPart;
 	t[VS_COPYFROM + g_delta]      = (Fn)&Hook_CopyFrom;
+	t[VS_LOCK + g_delta]          = (Fn)&Hook_Lock;
+	t[VS_UNLOCK + g_delta]        = (Fn)&Hook_Unlock;
+	t[VS_CANLOCK + g_delta]       = (Fn)&Hook_CanLock;
+	t[VS_ISLOCKED + g_delta]      = (Fn)&Hook_IsLocked;
 	return t;
 }
 
-static bool PatchSurface(Surface* s, bool primary)
+static bool PatchSurface(Surface* s, bool primary, const char* name)
 {
 	if (!s)
 		return false;
@@ -308,7 +305,6 @@ static bool PatchSurface(Surface* s, bool primary)
 		++g_patchN;
 	}
 
-	// 分配 scratch
 	if (g_scrN < kMaxSurfSlot && !FindScratch(s))
 	{
 		int pitch, bpp, w, h;
@@ -322,6 +318,8 @@ static bool PatchSurface(Surface* s, bool primary)
 		sc.Bpp = bpp;
 		sc.W = w;
 		sc.H = h;
+		sc.Name = name;
+		sc.NonZero = 0;
 		sc.Cap = (size_t)pitch * (size_t)h;
 
 		if (primary && g_sharedBase && sc.Cap + kPixelOffset <= (size_t)g_info->Pad)
@@ -339,23 +337,18 @@ static bool PatchSurface(Surface* s, bool primary)
 
 		memset(sc.Buf, 0, sc.Cap);
 		++g_scrN;
-		Debug::Log("[DrawCapture] scratch %p %dx%d pitch=%d bpp=%d%s\n",
-			sc.Buf, w, h, pitch, bpp, primary ? " (primary)" : "");
+		Debug::Log("[DrawCapture] scratch %-10s %dx%d pitch=%d bpp=%d %p\n",
+			name, w, h, pitch, bpp, sc.Buf);
 	}
 
 	*(void***)s = (void**)patched;
 	return true;
 }
-}
 
-//=============================================================================
-// ---- 解除鼠标锁定：把 gamemd 对 ClipCursor / SetCapture 的调用变成空操作 ----
-static BOOL WINAPI NoClipCursor(const RECT*) { return TRUE; }
-static HWND WINAPI NoSetCapture(HWND) { return nullptr; }
-
-static bool PatchIAT(HMODULE mod, const char* dllName, const char* fnName, void* repl)
+// ---- IAT：按函数地址替换（比按名字匹配可靠）--------------------------------
+static bool PatchIATByAddress(HMODULE mod, void* target, void* repl)
 {
-	if (!mod)
+	if (!mod || !target)
 		return false;
 
 	BYTE* base = (BYTE*)mod;
@@ -370,44 +363,71 @@ static bool PatchIAT(HMODULE mod, const char* dllName, const char* fnName, void*
 	if (!dir.VirtualAddress)
 		return false;
 
+	bool any = false;
 	auto* imp = (IMAGE_IMPORT_DESCRIPTOR*)(base + dir.VirtualAddress);
 	for (; imp->Name; ++imp)
 	{
-		if (_stricmp((const char*)(base + imp->Name), dllName) != 0)
-			continue;
-
 		auto* ft = (IMAGE_THUNK_DATA*)(base + imp->FirstThunk);
-		auto* oft = (IMAGE_THUNK_DATA*)(base + (imp->OriginalFirstThunk ? imp->OriginalFirstThunk : imp->FirstThunk));
-		for (; ft->u1.Function; ++ft, ++oft)
+		for (; ft->u1.Function; ++ft)
 		{
-			const ULONG_PTR addr = oft->u1.AddressOfData;
-			if (!addr || (addr & IMAGE_ORDINAL_FLAG))
-				continue;
-			auto* hint = (IMAGE_IMPORT_BY_NAME*)(base + addr);
-			if (strcmp((const char*)hint->Name, fnName) != 0)
+			if ((void*)ft->u1.Function != target)
 				continue;
 
 			DWORD oldProt = 0;
 			if (!VirtualProtect(&ft->u1.Function, sizeof(void*), PAGE_READWRITE, &oldProt))
-				return false;
+				continue;
 			ft->u1.Function = (ULONG_PTR)repl;
 			VirtualProtect(&ft->u1.Function, sizeof(void*), oldProt, &oldProt);
-			return true;
+			any = true;
 		}
 	}
-	return false;
+	return any;
 }
+
+static BOOL WINAPI NoClipCursor(const RECT*) { return TRUE; }
+static HWND WINAPI NoSetCapture(HWND) { return nullptr; }
 
 static void PatchInputHooks()
 {
 	HMODULE game = GetModuleHandleW(nullptr);
-	if (!game)
+	HMODULE user = GetModuleHandleW(L"user32.dll");
+	if (!game || !user)
 		return;
-	const bool a = PatchIAT(game, "user32.dll", "ClipCursor", (void*)&NoClipCursor);
-	const bool b = PatchIAT(game, "user32.dll", "SetCapture", (void*)&NoSetCapture);
+
+	void* realClip = (void*)GetProcAddress(user, "ClipCursor");
+	void* realCapture = (void*)GetProcAddress(user, "SetCapture");
+
+	const bool a = realClip ? PatchIATByAddress(game, realClip, (void*)&NoClipCursor) : false;
+	const bool b = realCapture ? PatchIATByAddress(game, realCapture, (void*)&NoSetCapture) : false;
+
 	ClipCursor(nullptr);
-	Debug::Log("[DrawCapture] input unlock: ClipCursor=%d SetCapture=%d\n", (int)a, (int)b);
+	Debug::Log("[DrawCapture] input unlock: ClipCursor=%d (real=%p) SetCapture=%d (real=%p)\n",
+		(int)a, realClip, (int)b, realCapture);
 }
+
+// ---- 填充率采样 ------------------------------------------------------------
+static uint32_t SampleNonZero(const SurfScratch& sc) noexcept
+{
+	if (!sc.Buf || sc.W <= 0 || sc.H <= 0)
+		return 0;
+
+	uint32_t nz = 0;
+	const int bpp = (sc.Bpp > 0) ? sc.Bpp : 2;
+	const size_t total = (size_t)sc.W * (size_t)sc.H;
+	const size_t step = 61;			// 质数步长，避开对齐偏差
+	for (size_t i = 0; i < total; i += step)
+	{
+		const size_t y = i / (size_t)sc.W;
+		const size_t x = i % (size_t)sc.W;
+		const uint8_t* p = sc.Buf + y * (size_t)sc.Pitch + x * (size_t)bpp;
+		if (p[0] || (bpp > 1 && p[1]))
+			++nz;
+	}
+	return nz;
+}
+}
+
+//=============================================================================
 bool DrawCapture::Install()
 {
 	if (g_installed)
@@ -425,20 +445,17 @@ bool DrawCapture::Install()
 
 	void** vt = *(void***)primary;
 
-	// ---- 探针 ----
 	const bool anchored = LocateAnchor(vt, primary, g_delta);
 	if (!anchored)
 	{
-		Debug::Log("[DrawCapture] anchor NOT found -> safe-fail: DDraw untouched,\n"
-			"[DrawCapture]   preview will read the real surface instead.\n");
-		return false;		// 不装任何补丁，游戏行为完全不变
+		Debug::Log("[DrawCapture] anchor NOT found -> safe-fail: DDraw untouched\n");
+		return false;
 	}
 
-	// ---- 共享内存 ----
 	int pitch, bpp, w, h;
 	QueryFormat(primary, pitch, bpp, w, h);
 	const size_t pixCap = (size_t)pitch * (size_t)h;
-	const size_t total = kPixelOffset + pixCap + (1u << 20);	// +1MB slack
+	const size_t total = kPixelOffset + pixCap + (1u << 20);
 
 	g_map = CreateFileMappingW(INVALID_HANDLE_VALUE, nullptr, PAGE_READWRITE,
 		0, (DWORD)total, kMapName);
@@ -455,24 +472,23 @@ bool DrawCapture::Install()
 		g_info->Height = h;
 		g_info->Pitch = pitch;
 		g_info->Bpp = bpp;
-		g_info->Pad = (uint32_t)total;		// 供 PatchSurface 校验容量
+		g_info->Pad = (uint32_t)total;
 	}
 	else
 	{
 		Debug::Log("[DrawCapture] shared mem failed err=%lu, heap-only\n", GetLastError());
 	}
 
-	// ---- 打补丁 ----
 	int ok = 0;
 	__try
 	{
-		if (PatchSurface(DSurface::Primary, true))   ++ok;
-		if (PatchSurface(DSurface::Composite, false)) ++ok;
-		if (PatchSurface(DSurface::Hidden, false))    ++ok;
-		if (PatchSurface(DSurface::Sidebar, false))   ++ok;
-		if (PatchSurface(DSurface::Alternate, false)) ++ok;
-		if (PatchSurface(DSurface::Temp, false))      ++ok;
-		if (PatchSurface(DSurface::Tile, false))      ++ok;
+		if (PatchSurface(DSurface::Primary, true, "Primary"))     ++ok;
+		if (PatchSurface(DSurface::Composite, false, "Composite")) ++ok;
+		if (PatchSurface(DSurface::Hidden, false, "Hidden"))       ++ok;
+		if (PatchSurface(DSurface::Sidebar, false, "Sidebar"))     ++ok;
+		if (PatchSurface(DSurface::Alternate, false, "Alternate")) ++ok;
+		if (PatchSurface(DSurface::Temp, false, "Temp"))           ++ok;
+		if (PatchSurface(DSurface::Tile, false, "Tile"))           ++ok;
 	}
 	__except (EXCEPTION_EXECUTE_HANDLER)
 	{
@@ -507,29 +523,58 @@ void DrawCapture::Publish()
 		MemoryBarrier();
 		InterlockedExchange((volatile LONG*)&g_info->Epoch, (LONG)(g_frames + 1));
 	}
+
+	// 每 2 秒报一次各面填充率，直接看出画面落在哪块
+	const uint64_t now = GetTickCount64();
+	if (g_installed && now - g_lastStatTick >= 2000)
+	{
+		g_lastStatTick = now;
+		for (int i = 0; i < g_scrN; ++i)
+			g_scr[i].NonZero = SampleNonZero(g_scr[i]);
+
+		char buf[512];
+		int n = 0;
+		for (int i = 0; i < g_scrN && n < 460; ++i)
+		{
+			n += sprintf_s(buf + n, sizeof(buf) - n, "%s=%u ",
+				g_scr[i].Name ? g_scr[i].Name : "?", g_scr[i].NonZero);
+		}
+		Debug::Log("[DrawCapture] fill: %s | locks=%llu blits=%llu\n",
+			buf, (unsigned long long)g_locks, (unsigned long long)g_blits);
+	}
 }
 
 bool DrawCapture::GetFrame(void** pixels, int* width, int* height, int* pitch, int* bpp)
 {
 	if (pixels) *pixels = nullptr;
 
-	// 优先：我们自己的 Primary scratch（已被原版绘制代码填满）
-	SurfScratch* sc = nullptr;
+	// 选"最满"的那块；同等时优先 Primary
+	SurfScratch* best = nullptr;
+	uint32_t bestNz = 0;
 	for (int i = 0; i < g_scrN; ++i)
-		if (g_scr[i].S && g_scr[i].InShared)
-			sc = &g_scr[i];
-
-	if (sc && sc->Buf)
 	{
-		if (pixels) *pixels = sc->Buf;
-		if (width)  *width = sc->W;
-		if (height) *height = sc->H;
-		if (pitch)  *pitch = sc->Pitch;
-		if (bpp)    *bpp = sc->Bpp;
+		SurfScratch& sc = g_scr[i];
+		if (!sc.Buf)
+			continue;
+		const uint32_t nz = sc.NonZero;
+		if (!best || nz > bestNz || (nz == bestNz && sc.Name && sc.Name[0] == 'P'))
+		{
+			best = &sc;
+			bestNz = nz;
+		}
+	}
+
+	if (best && best->Buf)
+	{
+		if (pixels) *pixels = best->Buf;
+		if (width)  *width = best->W;
+		if (height) *height = best->H;
+		if (pitch)  *pitch = best->Pitch;
+		if (bpp)    *bpp = best->Bpp;
 		return true;
 	}
 
-	// 退路：直读真实 DDraw surface（用原版 Lock/Unlock，只读不改）
+	// 退路：直读真实 DDraw surface
 	Surface* primary = nullptr;
 	__try { primary = DSurface::Primary; }
 	__except (EXCEPTION_EXECUTE_HANDLER) {}
@@ -542,12 +587,12 @@ bool DrawCapture::GetFrame(void** pixels, int* width, int* height, int* pitch, i
 	if (!bits)
 		return false;
 
-	int p = 0, b = 2, w = primary->Width, h = primary->Height;
-	QueryFormat(primary, p, b, w, h);
+	int p = 0, b = 2, ww = primary->Width, hh = primary->Height;
+	QueryFormat(primary, p, b, ww, hh);
 
 	if (pixels) *pixels = bits;
-	if (width)  *width = w;
-	if (height) *height = h;
+	if (width)  *width = ww;
+	if (height) *height = hh;
 	if (pitch)  *pitch = p;
 	if (bpp)    *bpp = b;
 	return true;
@@ -586,6 +631,6 @@ DrawCapture::Stats DrawCapture::GetStats()
 	Stats s{};
 	s.Locks = g_locks;
 	s.FramesPublished = g_frames;
-	s.UnlocksSkipped = g_unlocksSkipped;
+	s.UnlocksSkipped = g_unlocks;
 	return s;
 }
