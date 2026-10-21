@@ -60,6 +60,9 @@ bool		g_installed = false;
 int			g_delta = 0;
 uint64_t	g_lastStatTick = 0;
 
+// 安全兜底：Lock 永远不会返回 NULL，避免调用方解引用崩溃
+static uint8_t g_nullSink[8 * 1024 * 1024];
+
 // ---- 热路径 ----------------------------------------------------------------
 __forceinline SurfScratch* FindScratch(Surface* s) noexcept
 {
@@ -153,7 +156,7 @@ static void* __fastcall Hook_Lock(void* self, void* /*edx*/, int X, int Y)
 	++g_locks;
 	SurfScratch* sc = FindScratch((Surface*)self);
 	if (!sc || !sc->Buf)
-		return nullptr;
+		return g_nullSink;	// 绝不返回 NULL：否则绘制方只加行偏移就往低地址写，必崩
 
 	long long off = (long long)Y * sc->Pitch + (long long)X * sc->Bpp;
 	if (off < 0)
@@ -269,9 +272,9 @@ static Fn* BuildPatchedVtbl(void** orig)
 	for (int i = 0; i < n; ++i)
 		t[i] = (Fn)orig[i];
 
-	t[VS_COPYFROMWHOLE + g_delta] = (Fn)&Hook_CopyFromWhole;
-	t[VS_COPYFROMPART + g_delta]  = (Fn)&Hook_CopyFromPart;
-	t[VS_COPYFROM + g_delta]      = (Fn)&Hook_CopyFrom;
+	// t[VS_COPYFROMWHOLE + g_delta] = (Fn)&Hook_CopyFromWhole;	// 签名未证实，先摘掉
+	// t[VS_COPYFROMPART + g_delta]  = (Fn)&Hook_CopyFromPart;	// 签名未证实，先摘掉
+	// t[VS_COPYFROM + g_delta]      = (Fn)&Hook_CopyFrom;	// 签名未证实，先摘掉
 	t[VS_LOCK + g_delta]          = (Fn)&Hook_Lock;
 	t[VS_UNLOCK + g_delta]        = (Fn)&Hook_Unlock;
 	t[VS_CANLOCK + g_delta]       = (Fn)&Hook_CanLock;
@@ -341,14 +344,23 @@ static bool PatchSurface(Surface* s, bool primary, const char* name)
 			name, w, h, pitch, bpp, sc.Buf);
 	}
 
+	if (!FindScratch(s))
+	{
+		Debug::Log("[DrawCapture] %s has no scratch -> vtable NOT patched", name ? name : "?");
+		return false;
+	}
+
 	*(void***)s = (void**)patched;
 	return true;
 }
 
-// ---- IAT：按函数地址替换（比按名字匹配可靠）--------------------------------
-static bool PatchIATByAddress(HMODULE mod, void* target, void* repl)
+// ---- IAT：按名字匹配（只碰 user32 的具名项，最保守）------------------------
+static BOOL WINAPI NoClipCursor(const RECT*) { return TRUE; }
+static HWND WINAPI NoSetCapture(HWND) { return nullptr; }
+
+static bool PatchIATByName(HMODULE mod, const char* dllName, const char* fnName, void* repl)
 {
-	if (!mod || !target)
+	if (!mod)
 		return false;
 
 	BYTE* base = (BYTE*)mod;
@@ -363,48 +375,46 @@ static bool PatchIATByAddress(HMODULE mod, void* target, void* repl)
 	if (!dir.VirtualAddress)
 		return false;
 
-	bool any = false;
 	auto* imp = (IMAGE_IMPORT_DESCRIPTOR*)(base + dir.VirtualAddress);
 	for (; imp->Name; ++imp)
 	{
+		if (_stricmp((const char*)(base + imp->Name), dllName) != 0)
+			continue;
+
 		auto* ft = (IMAGE_THUNK_DATA*)(base + imp->FirstThunk);
-		for (; ft->u1.Function; ++ft)
+		auto* oft = (IMAGE_THUNK_DATA*)(base + (imp->OriginalFirstThunk ? imp->OriginalFirstThunk : imp->FirstThunk));
+		for (; ft->u1.Function; ++ft, ++oft)
 		{
-			if ((void*)ft->u1.Function != target)
+			const ULONG_PTR a = oft->u1.AddressOfData;
+			if (!a || (a & IMAGE_ORDINAL_FLAG))
+				continue;
+			auto* hint = (IMAGE_IMPORT_BY_NAME*)(base + a);
+			if (strcmp((const char*)hint->Name, fnName) != 0)
 				continue;
 
 			DWORD oldProt = 0;
 			if (!VirtualProtect(&ft->u1.Function, sizeof(void*), PAGE_READWRITE, &oldProt))
-				continue;
+				return false;
 			ft->u1.Function = (ULONG_PTR)repl;
 			VirtualProtect(&ft->u1.Function, sizeof(void*), oldProt, &oldProt);
-			any = true;
+			return true;
 		}
 	}
-	return any;
+	return false;
 }
-
-static BOOL WINAPI NoClipCursor(const RECT*) { return TRUE; }
-static HWND WINAPI NoSetCapture(HWND) { return nullptr; }
 
 static void PatchInputHooks()
 {
 	HMODULE game = GetModuleHandleW(nullptr);
-	HMODULE user = GetModuleHandleW(L"user32.dll");
-	if (!game || !user)
+	if (!game)
 		return;
 
-	void* realClip = (void*)GetProcAddress(user, "ClipCursor");
-	void* realCapture = (void*)GetProcAddress(user, "SetCapture");
-
-	const bool a = realClip ? PatchIATByAddress(game, realClip, (void*)&NoClipCursor) : false;
-	const bool b = realCapture ? PatchIATByAddress(game, realCapture, (void*)&NoSetCapture) : false;
+	const bool a = PatchIATByName(game, "user32.dll", "ClipCursor", (void*)&NoClipCursor);
+	const bool b = PatchIATByName(game, "user32.dll", "SetCapture", (void*)&NoSetCapture);
 
 	ClipCursor(nullptr);
-	Debug::Log("[DrawCapture] input unlock: ClipCursor=%d (real=%p) SetCapture=%d (real=%p)\n",
-		(int)a, realClip, (int)b, realCapture);
+	Debug::Log("[DrawCapture] input unlock: ClipCursor=%d SetCapture=%d\n", (int)a, (int)b);
 }
-
 // ---- 填充率采样 ------------------------------------------------------------
 static uint32_t SampleNonZero(const SurfScratch& sc) noexcept
 {
