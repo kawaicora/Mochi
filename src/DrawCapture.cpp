@@ -163,7 +163,19 @@ static void* __fastcall Hook_Lock(void* self, void* /*edx*/, int X, int Y)
 		off = 0;
 	if ((size_t)off >= sc->Cap)
 		off = 0;
-	return sc->Buf + off;
+
+	void* ptr = sc->Buf + off;
+
+	// 关键：原版 Lock 会把锁到的指针写进 DSurface::Buffer，而 MochiGraph 等
+	// 既有代码是直接读 surface->Buffer 当像素基址用的。替换了 Lock 就必须照做，
+	// 否则 Buffer 恒为 0，绘制方只加行偏移就写到零基址上，必崩。
+	__try
+	{
+		((DSurface*)self)->Buffer = ptr;
+	}
+	__except (EXCEPTION_EXECUTE_HANDLER) {}
+
+	return ptr;
 }
 
 static bool __fastcall Hook_Unlock(void* /*self*/, void* /*edx*/)
