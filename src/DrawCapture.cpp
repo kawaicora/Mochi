@@ -173,6 +173,72 @@ static bool __fastcall Hook_IsLocked(void* /*self*/, void* /*edx*/)
 	return false;
 }
 
+static void BlitScratch(SurfScratch* d, SurfScratch* s, int dx, int dy, int sx, int sy, int w, int h)
+{
+	if (!d || !s || !d->Buf || !s->Buf)
+		return;
+	if (w <= 0 || h <= 0) { w = d->W; h = d->H; }
+
+	if (sx < 0) { dx -= sx; w += sx; sx = 0; }
+	if (sy < 0) { dy -= sy; h += sy; sy = 0; }
+	if (sx + w > s->W) w = s->W - sx;
+	if (sy + h > s->H) h = s->H - sy;
+	if (dx < 0) { sx -= dx; w += dx; dx = 0; }
+	if (dy < 0) { sy -= dy; h += dy; dy = 0; }
+	if (dx + w > d->W) w = d->W - dx;
+	if (dy + h > d->H) h = d->H - dy;
+	if (w <= 0 || h <= 0)
+		return;
+
+	const size_t bpp = (d->Bpp > 0) ? (size_t)d->Bpp : 2;
+	const size_t rowBytes = (size_t)w * bpp;
+	for (int y = 0; y < h; ++y)
+	{
+		const uint8_t* sp = s->Buf + (size_t)(sy + y) * (size_t)s->Pitch + (size_t)sx * bpp;
+		uint8_t* dp = d->Buf + (size_t)(dy + y) * (size_t)d->Pitch + (size_t)dx * bpp;
+		memcpy(dp, sp, rowBytes);
+	}
+}
+
+static bool __fastcall Hook_CopyFromWhole(void* self, void* /*edx*/, Surface* pSrc, bool, bool)
+{
+	SurfScratch* d = FindScratch((Surface*)self);
+	SurfScratch* s = FindScratch(pSrc);
+	if (!d || !s || !d->Buf || !s->Buf)
+		return true;
+	BlitScratch(d, s, 0, 0, 0, 0, d->W, d->H);
+	return true;
+}
+
+static bool __fastcall Hook_CopyFromPart(void* self, void* /*edx*/,
+	RectangleStruct* pClip, Surface* pSrc, RectangleStruct* pSrcRect, bool, bool)
+{
+	SurfScratch* d = FindScratch((Surface*)self);
+	SurfScratch* s = FindScratch(pSrc);
+	if (!d || !s || !d->Buf || !s->Buf)
+		return true;
+	BlitScratch(d, s,
+		pClip ? pClip->X : 0, pClip ? pClip->Y : 0,
+		pSrcRect ? pSrcRect->X : 0, pSrcRect ? pSrcRect->Y : 0,
+		pSrcRect ? pSrcRect->Width : d->W, pSrcRect ? pSrcRect->Height : d->H);
+	return true;
+}
+
+static bool __fastcall Hook_CopyFrom(void* self, void* /*edx*/,
+	RectangleStruct* /*pClip*/, RectangleStruct* /*pClip2*/, Surface* pSrc,
+	RectangleStruct* pDest, RectangleStruct* pSrcRect, bool, bool)
+{
+	SurfScratch* d = FindScratch((Surface*)self);
+	SurfScratch* s = FindScratch(pSrc);
+	if (!d || !s || !d->Buf || !s->Buf)
+		return true;
+	BlitScratch(d, s,
+		pDest ? pDest->X : 0, pDest ? pDest->Y : 0,
+		pSrcRect ? pSrcRect->X : 0, pSrcRect ? pSrcRect->Y : 0,
+		pDest ? pDest->Width : d->W, pDest ? pDest->Height : d->H);
+	return true;
+}
+
 static bool __fastcall Hook_CanLock(void* /*self*/, void* /*edx*/, DWORD, DWORD)
 {
 	return true;
@@ -188,6 +254,8 @@ Patch	g_patch[8];
 int		g_patchN = 0;
 
 #define VS_COPYFROMWHOLE 1
+#define VS_COPYFROMPART  2
+#define VS_COPYFROM      3
 #define VS_LOCK          23
 #define VS_UNLOCK        24
 #define VS_CANLOCK       25
@@ -208,6 +276,9 @@ static Fn* BuildPatchedVtbl(void** orig)
 	t[VS_UNLOCK + g_delta]   = (Fn)&Hook_Unlock;
 	t[VS_CANLOCK + g_delta]  = (Fn)&Hook_CanLock;
 	t[VS_ISLOCKED + g_delta] = (Fn)&Hook_IsLocked;
+	t[VS_COPYFROMWHOLE + g_delta] = (Fn)&Hook_CopyFromWhole;
+	t[VS_COPYFROMPART + g_delta]  = (Fn)&Hook_CopyFromPart;
+	t[VS_COPYFROM + g_delta]      = (Fn)&Hook_CopyFrom;
 	return t;
 }
 
@@ -278,6 +349,65 @@ static bool PatchSurface(Surface* s, bool primary)
 }
 
 //=============================================================================
+// ---- 解除鼠标锁定：把 gamemd 对 ClipCursor / SetCapture 的调用变成空操作 ----
+static BOOL WINAPI NoClipCursor(const RECT*) { return TRUE; }
+static HWND WINAPI NoSetCapture(HWND) { return nullptr; }
+
+static bool PatchIAT(HMODULE mod, const char* dllName, const char* fnName, void* repl)
+{
+	if (!mod)
+		return false;
+
+	BYTE* base = (BYTE*)mod;
+	auto* dos = (IMAGE_DOS_HEADER*)base;
+	if (dos->e_magic != IMAGE_DOS_SIGNATURE)
+		return false;
+	auto* nt = (IMAGE_NT_HEADERS*)(base + dos->e_lfanew);
+	if (nt->Signature != IMAGE_NT_SIGNATURE)
+		return false;
+
+	const IMAGE_DATA_DIRECTORY& dir = nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT];
+	if (!dir.VirtualAddress)
+		return false;
+
+	auto* imp = (IMAGE_IMPORT_DESCRIPTOR*)(base + dir.VirtualAddress);
+	for (; imp->Name; ++imp)
+	{
+		if (_stricmp((const char*)(base + imp->Name), dllName) != 0)
+			continue;
+
+		auto* ft = (IMAGE_THUNK_DATA*)(base + imp->FirstThunk);
+		auto* oft = (IMAGE_THUNK_DATA*)(base + (imp->OriginalFirstThunk ? imp->OriginalFirstThunk : imp->FirstThunk));
+		for (; ft->u1.Function; ++ft, ++oft)
+		{
+			const ULONG_PTR addr = oft->u1.AddressOfData;
+			if (!addr || (addr & IMAGE_ORDINAL_FLAG))
+				continue;
+			auto* hint = (IMAGE_IMPORT_BY_NAME*)(base + addr);
+			if (strcmp((const char*)hint->Name, fnName) != 0)
+				continue;
+
+			DWORD oldProt = 0;
+			if (!VirtualProtect(&ft->u1.Function, sizeof(void*), PAGE_READWRITE, &oldProt))
+				return false;
+			ft->u1.Function = (ULONG_PTR)repl;
+			VirtualProtect(&ft->u1.Function, sizeof(void*), oldProt, &oldProt);
+			return true;
+		}
+	}
+	return false;
+}
+
+static void PatchInputHooks()
+{
+	HMODULE game = GetModuleHandleW(nullptr);
+	if (!game)
+		return;
+	const bool a = PatchIAT(game, "user32.dll", "ClipCursor", (void*)&NoClipCursor);
+	const bool b = PatchIAT(game, "user32.dll", "SetCapture", (void*)&NoSetCapture);
+	ClipCursor(nullptr);
+	Debug::Log("[DrawCapture] input unlock: ClipCursor=%d SetCapture=%d\n", (int)a, (int)b);
+}
 bool DrawCapture::Install()
 {
 	if (g_installed)
@@ -349,6 +479,7 @@ bool DrawCapture::Install()
 		Debug::Log("[DrawCapture] exception during patching\n");
 	}
 
+	PatchInputHooks();
 	HideGameWindows();
 
 	if (g_info)
