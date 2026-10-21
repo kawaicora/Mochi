@@ -95,8 +95,13 @@ static bool LocateAnchor(void** vt, Surface* s, int& delta) noexcept
 
 	Debug::Log("[DrawCapture] probing vtable, expect %dx%d\n", wantW, wantH);
 
-	for (int i = 20; i <= 48; ++i)
+	// 严格只试 GetWidth/GetHeight 可能落下的纯 getter 槽位。
+	// 绝不 20..48 全扫 —— 那会调到 DrawLine_/DrawRectEx/DrawGradientLine
+	// 这类要指针参数的函数，用垃圾指针写内存会把游戏直接搞崩。
+	static const int kCand[] = { 31, 32, 30, 29 };
+	for (int c = 0; c < 4; ++c)
 	{
+		const int i = kCand[c];
 		const int w = SafeCall((Fn)vt[i], s);
 		const int h = SafeCall((Fn)vt[i + 1], s);
 		Debug::Log("[DrawCapture]   slot %2d -> %d , %d\n", i, w, h);
