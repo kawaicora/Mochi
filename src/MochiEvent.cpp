@@ -223,6 +223,14 @@ void MochiEvent::CoraMoneyChange(EventData* data) {
 	Debug::LogW(L"***************************************CoraCompleteChangeMoney*************************************************\n");
 	HouseClass* pHouse = HouseClass::Array[data->HouseIndex];
 	pHouse->TransactMoney(data->Money.Amount);
+	//const wchar_t* opStr = L"加";
+	//if (data->Money.Amount < 0) {
+	//	opStr = L"减";
+	//}
+	//wchar_t buf[100];
+	//wsprintfW(buf, L"修改金钱%ls %d", opStr, abs(data->Money.Amount));
+	//MessageListClass::Instance.AddMessage(L"", 0, buf, ColorScheme::Red, TextPrintType::DropShadow, FPSCounter::CurrentFrameRate * 1, false);
+
 
 };
 
