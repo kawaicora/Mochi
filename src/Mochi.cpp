@@ -1,4 +1,4 @@
-﻿#include "Mochi.h"
+#include "Mochi.h"
 #include <Windows.h>
 #include <Helpers/Macro.h>
 #include <vector>
@@ -14,6 +14,8 @@
 #include <EventData.h>
 #include <EventHook.h>
 #include <SurfaceDebug.h>
+#include <DrawCapture.h>
+#include <PreviewWindow.h>
 #include <iostream>
 HANDLE Mochi::hInstance = 0;
 bool Mochi::isRegistered = false;
@@ -148,6 +150,8 @@ void Mochi::RegisterEvent() {
 	
 	GeneralHook::ScenarioStartEvent.Subscribe([]() {
 		Debug::Log("Scenario Started\n");
+		DrawCapture::Install();
+		PreviewWindow::Create();
 		//p = SurfaceDebug::CreateSurfaceWindow(DSurface::Sidebar, L"Sidebar",false);
 		//SurfaceDebug::CreateSurfaceWindow(DSurface::Hidden, L"Hidden", true);
 		//SurfaceDebug::CreateSurfaceWindow(DSurface::Primary, L"Primary", true);
@@ -171,7 +175,8 @@ void Mochi::RegisterEvent() {
 	});
 
 	GeneralHook::LogicClassUpdateEvent.Subscribe([]() {
-
+		DrawCapture::Publish();
+		PreviewWindow::RenderFrame();
 	});
 
 	GeneralHook::LogicClassUpdateLateEvent.Subscribe([]() {

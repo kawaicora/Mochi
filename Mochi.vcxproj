@@ -33,6 +33,8 @@
     <ClCompile Include="src\MochiMegaMission.cpp" />
     <ClCompile Include="src\MochiTechno.cpp" />
     <ClCompile Include="src\SurfaceDebug.cpp" />
+    <ClCompile Include="src\DrawCapture.cpp" />
+    <ClCompile Include="src\PreviewWindow.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\Debug.h" />
@@ -56,6 +58,8 @@
     <ClInclude Include="src\MochiTechno.h" />
     <ClInclude Include="src\MochiCommandClass.h" />
     <ClInclude Include="src\SurfaceDebug.h" />
+    <ClInclude Include="src\DrawCapture.h" />
+    <ClInclude Include="src\PreviewWindow.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="src\EventSystem.inl" />
