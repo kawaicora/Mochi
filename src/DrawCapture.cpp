@@ -45,6 +45,8 @@ struct SurfScratch
 	bool		InShared;
 	const char*	Name;			// 已知面给名字，未知面为 nullptr
 	uint32_t	NonZero;
+	uint32_t	LastTick;		// 最后被 Lock 的时刻
+	uint64_t	LockCount;
 };
 
 SurfScratch	g_scr[kMaxSurfSlot];
@@ -253,6 +255,9 @@ static void* __fastcall Hook_Lock(void* self, void* /*edx*/, int X, int Y)
 		sc = EnsureScratch((Surface*)self, false, nullptr);	// 运行时新建的面
 	if (!sc || !sc->Buf)
 		return g_nullSink;
+
+	sc->LastTick = GetTickCount();
+	++sc->LockCount;
 
 	long long off = (long long)Y * sc->Pitch + (long long)X * sc->Bpp;
 	if (off < 0)
@@ -604,28 +609,29 @@ bool DrawCapture::GetFrame(void** pixels, int* width, int* height, int* pitch, i
 {
 	if (pixels) *pixels = nullptr;
 
+	// 显示"游戏当前正在画的那一块"：按最后锁定时刻取最新，并列时优先 Primary。
+	// 加载界面 / 设置面板 / 计分板这些换面的时刻会自动跟随，
+	// 不需要我们猜它到底用的是哪一个 surface。
 	SurfScratch* best = nullptr;
-	SurfScratch* primaryScr = nullptr;
-	uint32_t bestNz = 0;
+	uint32_t bestTick = 0;
+	uint64_t bestLocks = 0;
 
 	for (int i = 0; i < g_scrN; ++i)
 	{
 		SurfScratch& sc = g_scr[i];
 		if (!sc.Buf)
 			continue;
-		if (sc.Name && strcmp(sc.Name, "Primary") == 0)
-			primaryScr = &sc;
-		if (!best || sc.NonZero > bestNz)
+		const bool isPrimary = (sc.Name && strcmp(sc.Name, "Primary") == 0);
+		if (!best ||
+			sc.LastTick > bestTick ||
+			(sc.LastTick == bestTick && sc.LockCount > bestLocks) ||
+			(sc.LastTick == bestTick && sc.LockCount == bestLocks && isPrimary))
 		{
 			best = &sc;
-			bestNz = sc.NonZero;
+			bestTick = sc.LastTick;
+			bestLocks = sc.LockCount;
 		}
 	}
-
-	// Primary 是最终合成画面（sidebar / UI / 动画都叠在上面）
-	if (primaryScr && primaryScr->Buf && primaryScr->NonZero > 0)
-		best = primaryScr;
-
 	if (best && best->Buf)
 	{
 		if (pixels) *pixels = best->Buf;
