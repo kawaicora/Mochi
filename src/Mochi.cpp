@@ -15,6 +15,7 @@
 #include <EventHook.h>
 #include <SurfaceDebug.h>
 #include <DrawCapture.h>
+#include <DrawDefer.h>
 #include <PreviewWindow.h>
 #include <iostream>
 HANDLE Mochi::hInstance = 0;
@@ -151,6 +152,8 @@ void Mochi::RegisterEvent() {
 	GeneralHook::ScenarioStartEvent.Subscribe([]() {
 		Debug::Log("Scenario Started\n");
 		DrawCapture::Install();
+		// 阶段 1：钩住 CC_Draw_Shape（计数后立即转发），验证 trampoline 正确性
+		DrawDefer::Install();
 		// 预览窗已关闭：诊断完成，避免每帧 7 面锁+转换的开销
 		// PreviewWindow::Create();
 		// 逐面开窗已关闭（需指认时临时打开）

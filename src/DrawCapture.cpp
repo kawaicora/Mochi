@@ -21,6 +21,7 @@
 
 #include <YRPP.h>
 #include <Debug.h>
+#include <DrawDefer.h>
 
 #include <stdint.h>
 #include <intrin.h>
@@ -668,8 +669,9 @@ void DrawCapture::Publish()
 	if (now - s_lastTiming >= 1000)
 	{
 		s_lastTiming = now;
+		const uint64_t draws = DrawDefer::TakeCallCount();
 		const uint64_t n = g_nFrames ? g_nFrames : 1;
-		Debug::Log("[Timing] frame avg=%llu.%03llums max=%llu.%03llums | logic avg=%llu.%03llums max=%llu.%03llums | draw avg=%llu.%03llums max=%llu.%03llums | hookLock=%llu.%03llums/%llu copy=%llu.%03llums/%llu\n",
+		Debug::Log("[Timing] frame avg=%llu.%03llums max=%llu.%03llums | logic avg=%llu.%03llums max=%llu.%03llums | draw avg=%llu.%03llums max=%llu.%03llums | hookLock=%llu.%03llums/%llu copy=%llu.%03llums/%llu drawCalls=%llu\n",
 			(unsigned long long)(CyToUs(g_cyFrame / n) / 1000), (unsigned long long)(CyToUs(g_cyFrame / n) % 1000),
 			(unsigned long long)(CyToUs(g_cyFrameMax) / 1000), (unsigned long long)(CyToUs(g_cyFrameMax) % 1000),
 			(unsigned long long)(CyToUs(g_cyLogic / n) / 1000), (unsigned long long)(CyToUs(g_cyLogic / n) % 1000),
@@ -677,7 +679,7 @@ void DrawCapture::Publish()
 			(unsigned long long)(CyToUs(g_cyDraw / n) / 1000), (unsigned long long)(CyToUs(g_cyDraw / n) % 1000),
 			(unsigned long long)(CyToUs(g_cyDrawMax) / 1000), (unsigned long long)(CyToUs(g_cyDrawMax) % 1000),
 			(unsigned long long)(CyToUs(g_cyLock) / 1000), (unsigned long long)(CyToUs(g_cyLock) % 1000), (unsigned long long)g_nLock,
-			(unsigned long long)(CyToUs(g_cyCopy) / 1000), (unsigned long long)(CyToUs(g_cyCopy) % 1000), (unsigned long long)g_nCopy);
+			(unsigned long long)(CyToUs(g_cyCopy) / 1000), (unsigned long long)(CyToUs(g_cyCopy) % 1000), (unsigned long long)g_nCopy, draws);
 
 		g_cyFrame = g_cyLogic = g_cyDraw = 0;
 		g_cyFrameMax = g_cyLogicMax = g_cyDrawMax = 0;
