@@ -35,7 +35,7 @@ constexpr size_t   kScratchBudget = 256u * 1024u * 1024u;	// 所有 scratch 总�
 
 // 诊断模式：不 patch vtable、不隐藏窗口，让 SurfaceDebug 读到原版真实 surface。
 // 用于指认各块面承载哪个界面，确认后再切回接管模式。
-constexpr bool     kDiagnosticOnly = true;
+constexpr bool     kDiagnosticOnly = false;
 
 // ---- 状态 ------------------------------------------------------------------
 struct SurfScratch
@@ -626,34 +626,31 @@ bool DrawCapture::GetFrame(void** pixels, int* width, int* height, int* pitch, i
 	// 不需要我们猜它到底用的是哪一个 surface。
 	// Primary 是最终合成画面：tactical 视图、sidebar、UI、动画都叠在它上面。
 	// 固定 Primary，不按最后被锁的面来选（每帧各面都会被锁，那样等于随机跳面）。
-	SurfScratch* best = nullptr;
+	// 游戏主画面在 Primary；设置/菜单/加载/计分板由引擎直接显示 Alternate，
+	// 不会推到 Primary。两块都是全屏面，所以按"最近被绘制"二选一跟随：
+	// 游戏中 Primary 每帧都在画 -> 选 Primary；
+	// 菜单/加载时只有 Alternate 在画 -> 选 Alternate。
+	SurfScratch* prim = nullptr;
+	SurfScratch* alt = nullptr;
 
 	for (int i = 0; i < g_scrN; ++i)
 	{
 		SurfScratch& sc = g_scr[i];
-		if (!sc.Buf)
+		if (!sc.Buf || !sc.Name)
 			continue;
-		if (sc.Name && strcmp(sc.Name, "Primary") == 0)
-		{
-			best = &sc;
-			break;
-		}
+		if (strcmp(sc.Name, "Primary") == 0)
+			prim = &sc;
+		else if (strcmp(sc.Name, "Alternate") == 0)
+			alt = &sc;
 	}
 
-	if (!best)
+	SurfScratch* best = prim;
+	if (alt && alt->Buf)
 	{
-		uint64_t bestLocks = 0;
-		for (int i = 0; i < g_scrN; ++i)
-		{
-			SurfScratch& sc = g_scr[i];
-			if (!sc.Buf)
-				continue;
-			if (!best || sc.LockCount > bestLocks)
-			{
-				best = &sc;
-				bestLocks = sc.LockCount;
-			}
-		}
+		if (!best)
+			best = alt;
+		else if (alt->LastTick > best->LastTick)
+			best = alt;
 	}
 
 	if (best && best->Buf)
