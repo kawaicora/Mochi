@@ -3,17 +3,18 @@
 //  ---------------------------------------------------------------------------
 //  【像素级一致】
 //    不重写任何绘制。只把 Surface::Lock 返回的指针换成我们自己的常驻内存，
-//    原版 CC_Draw_Shape / 全部 blitter 原封不动地画进这块内存。
+//    原版 CC_Draw_Shape / 全部 blitter 原封不动画进这块内存。
 //    跑的是原版代码 => 画面与原本像素级一致。
 //
-//  【本版新增：自诊断 + 自动选面对】
-//    引擎最终可能是用 DDraw Blt 把 Hidden/Composite 推到 Primary 的，
-//    那条路绕过所有 Surface 虚函数，Primary 的 scratch 就会一直是空的。
-//    所以这里对每块缓冲采样非零像素数，GetFrame 返回"最满"的那块，
-//    并在每个逻辑帧打印一次各面的填充率 —— 一眼看出画面落在哪。
+//  【本版关键改变：补丁打在 vtable 表本身，而不是逐个对象】
+//    DSurface 的所有实例共用同一张 vtable（在只读 .rdata 里）。
+//    之前是给已知 7 个对象各建一份副本再替换 vptr —— 那么运行时新建的
+//    surface（加载界面、设置面板、计分板、字幕……）就完全漏掉。
+//    现在直接 VirtualProtect 那张共享表并原地改写，**现存与将来创建的
+//    所有 DSurface 实例自动生效**，未知 surface 的 scratch 按需分配。
 //
 //  【性能契约：逻辑 100% 全速】
-//    热路径只有查表 + 指针加法。无锁/无分配/无系统调用/无日志。
+//    热路径：查表 + 指针加法。scratch 只在首次遇到该 surface 时分配一次。
 //=============================================================================
 
 #include "DrawCapture.h"
@@ -29,7 +30,8 @@ namespace {
 using namespace DrawCaptureProto;
 
 constexpr uint32_t kPixelOffset = 4096;
-constexpr int      kMaxSurfSlot = 8;
+constexpr int      kMaxSurfSlot = 32;
+constexpr size_t   kScratchBudget = 256u * 1024u * 1024u;	// 所有 scratch 总量上限
 
 // ---- 状态 ------------------------------------------------------------------
 struct SurfScratch
@@ -41,12 +43,13 @@ struct SurfScratch
 	int			Bpp;
 	int			W, H;
 	bool		InShared;
-	const char*	Name;
-	uint32_t	NonZero;		// 采样得到的非零像素数（填充率参考）
+	const char*	Name;			// 已知面给名字，未知面为 nullptr
+	uint32_t	NonZero;
 };
 
 SurfScratch	g_scr[kMaxSurfSlot];
 int			g_scrN = 0;
+size_t		g_scratchUsed = 0;
 
 void*		g_sharedBase = nullptr;
 HANDLE		g_map = nullptr;
@@ -60,20 +63,19 @@ bool		g_installed = false;
 int			g_delta = 0;
 uint64_t	g_lastStatTick = 0;
 
-// 安全兜底：Lock 永远不会返回 NULL，避免调用方解引用崩溃
+// Lock 永不返回 NULL 的兜底（8MB，足够任何单面）
 static uint8_t g_nullSink[8 * 1024 * 1024];
 
-// ---- 热路径 ----------------------------------------------------------------
+using Fn = void(*)();
+
+// ---- 基础查询 --------------------------------------------------------------
 __forceinline SurfScratch* FindScratch(Surface* s) noexcept
 {
 	for (int i = 0; i < g_scrN; ++i)
-		if (g_scr[i].S == s)
+		if (g_scr[i].S == s && g_scr[i].Buf)
 			return &g_scr[i];
 	return nullptr;
 }
-
-// ---- vtable 探针（安全版）--------------------------------------------------
-using Fn = void(*)();
 
 static int SafeCall(Fn fn, void* self) noexcept
 {
@@ -85,6 +87,15 @@ static int SafeCall(Fn fn, void* self) noexcept
 	{
 		return -987654321;
 	}
+}
+
+// 调用未被替换的原版虚函数（vtable 已原地改写，但几何类槽位保持不变）
+static int CallVirtual(int slot, Surface* s) noexcept
+{
+	void** vt = *(void***)s;
+	if (!vt)
+		return 0;
+	return SafeCall((Fn)vt[slot + g_delta], s);
 }
 
 static bool LocateAnchor(void** vt, Surface* s, int& delta) noexcept
@@ -99,9 +110,6 @@ static bool LocateAnchor(void** vt, Surface* s, int& delta) noexcept
 
 	Debug::Log("[DrawCapture] probing vtable, expect %dx%d\n", wantW, wantH);
 
-	// 只试 GetWidth/GetHeight 可能落下的纯 getter 槽位。
-	// 绝不 20..48 全扫 —— 那会调到 DrawLine_/DrawRectEx/DrawGradientLine
-	// 这类要指针参数的函数，用垃圾指针写内存会把游戏直接搞崩。
 	static const int kCand[] = { 31, 32, 30, 29 };
 	for (int c = 0; c < 4; ++c)
 	{
@@ -119,14 +127,14 @@ static bool LocateAnchor(void** vt, Surface* s, int& delta) noexcept
 	return false;
 }
 
-// ---- 取 pitch/bpp ----------------------------------------------------------
 static void QueryFormat(Surface* s, int& pitch, int& bpp, int& w, int& h) noexcept
 {
 	w = s->Width;
 	h = s->Height;
 	pitch = 0;
-	bpp = 2;
+	bpp = 0;
 
+	// 1) 优先读 DDraw surface 描述
 	__try
 	{
 		DSurface* ds = (DSurface*)s;
@@ -144,19 +152,107 @@ static void QueryFormat(Surface* s, int& pitch, int& bpp, int& w, int& h) noexce
 	}
 	__except (EXCEPTION_EXECUTE_HANDLER) {}
 
+	// 2) 退回原版虚函数（注意：这两个槽位从未被替换）
+	if (bpp <= 0)
+	{
+		const int v = CallVirtual(28, s);			// GetBytesPerPixel
+		if (v == 1 || v == 2 || v == 4)
+			bpp = v;
+	}
+	if (pitch <= 0)
+	{
+		const int v = CallVirtual(29, s);			// GetPitch
+		if (v > 0)
+			pitch = v;
+	}
+
+	if (bpp <= 0)
+		bpp = 2;
+	if (w <= 0 || h <= 0)
+		return;
 	if (pitch <= 0)
 		pitch = w * bpp;
-	if (pitch <= 0)
-		pitch = w * 2;
+}
+
+// ---- 按需给任意 surface 建 scratch ----------------------------------------
+static SurfScratch* EnsureScratch(Surface* s, bool preferShared, const char* name) noexcept
+{
+	if (!s)
+		return nullptr;
+
+	SurfScratch* existing = FindScratch(s);
+	if (existing)
+		return existing;
+
+	if (g_scrN >= kMaxSurfSlot)
+		return nullptr;
+
+	int pitch = 0, bpp = 0, w = 0, h = 0;
+	__try { QueryFormat(s, pitch, bpp, w, h); }
+	__except (EXCEPTION_EXECUTE_HANDLER) { return nullptr; }
+
+	if (w <= 0 || h <= 0 || pitch <= 0)
+		return nullptr;
+
+	if (bpp <= 0) bpp = 2;
+	if (bpp > 4)  bpp = 4;
+
+	const size_t cap = (size_t)pitch * (size_t)h;
+	if (cap == 0 || cap > kScratchBudget)
+		return nullptr;
+	if (g_scratchUsed + cap > kScratchBudget)
+	{
+		Debug::Log("[DrawCapture] scratch budget exhausted (%llu bytes used)\n",
+			(unsigned long long)g_scratchUsed);
+		return nullptr;
+	}
+
+	SurfScratch& sc = g_scr[g_scrN];
+
+	if (preferShared && g_sharedBase && g_info &&
+		cap + kPixelOffset <= (size_t)g_info->Pad)
+	{
+		sc.Buf = (uint8_t*)g_sharedBase + kPixelOffset;
+		sc.InShared = true;
+	}
+	else
+	{
+		sc.Buf = (uint8_t*)VirtualAlloc(nullptr, cap, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+		sc.InShared = false;
+	}
+	if (!sc.Buf)
+		return nullptr;
+
+	memset(sc.Buf, 0, cap);
+
+	sc.S = s;
+	sc.Cap = cap;
+	sc.Pitch = pitch;
+	sc.Bpp = bpp;
+	sc.W = w;
+	sc.H = h;
+	sc.Name = name;
+	sc.NonZero = 0;
+
+	g_scratchUsed += cap;
+	++g_scrN;
+
+	Debug::Log("[DrawCapture] scratch %-9s %dx%d pitch=%d bpp=%d %p%s\n",
+		name ? name : "(auto)", w, h, pitch, bpp, sc.Buf,
+		sc.InShared ? " shared" : "");
+	return &sc;
 }
 
 // ---- 挂钩实现 --------------------------------------------------------------
 static void* __fastcall Hook_Lock(void* self, void* /*edx*/, int X, int Y)
 {
 	++g_locks;
+
 	SurfScratch* sc = FindScratch((Surface*)self);
+	if (!sc)
+		sc = EnsureScratch((Surface*)self, false, nullptr);	// 运行时新建的面
 	if (!sc || !sc->Buf)
-		return g_nullSink;	// 绝不返回 NULL：否则绘制方只加行偏移就往低地址写，必崩
+		return g_nullSink;
 
 	long long off = (long long)Y * sc->Pitch + (long long)X * sc->Bpp;
 	if (off < 0)
@@ -166,9 +262,8 @@ static void* __fastcall Hook_Lock(void* self, void* /*edx*/, int X, int Y)
 
 	void* ptr = sc->Buf + off;
 
-	// 关键：原版 Lock 会把锁到的指针写进 DSurface::Buffer，而 MochiGraph 等
-	// 既有代码是直接读 surface->Buffer 当像素基址用的。替换了 Lock 就必须照做，
-	// 否则 Buffer 恒为 0，绘制方只加行偏移就写到零基址上，必崩。
+	// 原版 Lock 会把锁到的指针写进 DSurface::Buffer，而 MochiGraph 等既有
+	// 代码直接读 surface->Buffer 当像素基址用。替换了 Lock 就必须照做。
 	__try
 	{
 		((DSurface*)self)->Buffer = ptr;
@@ -223,11 +318,21 @@ static void BlitScratch(SurfScratch* d, SurfScratch* s, int dx, int dy, int sx, 
 	++g_blits;
 }
 
+static SurfScratch* ScratchFor(Surface* s)
+{
+	if (!s)
+		return nullptr;
+	SurfScratch* sc = FindScratch(s);
+	if (!sc)
+		sc = EnsureScratch(s, false, nullptr);
+	return sc;
+}
+
 static bool __fastcall Hook_CopyFromWhole(void* self, void* /*edx*/, Surface* pSrc, bool, bool)
 {
-	SurfScratch* d = FindScratch((Surface*)self);
-	SurfScratch* s = FindScratch(pSrc);
-	if (!d || !s || !d->Buf || !s->Buf)
+	SurfScratch* d = ScratchFor((Surface*)self);
+	SurfScratch* s = ScratchFor(pSrc);
+	if (!d || !s)
 		return true;
 	BlitScratch(d, s, 0, 0, 0, 0, d->W, d->H);
 	return true;
@@ -236,9 +341,9 @@ static bool __fastcall Hook_CopyFromWhole(void* self, void* /*edx*/, Surface* pS
 static bool __fastcall Hook_CopyFromPart(void* self, void* /*edx*/,
 	RectangleStruct* pClip, Surface* pSrc, RectangleStruct* pSrcRect, bool, bool)
 {
-	SurfScratch* d = FindScratch((Surface*)self);
-	SurfScratch* s = FindScratch(pSrc);
-	if (!d || !s || !d->Buf || !s->Buf)
+	SurfScratch* d = ScratchFor((Surface*)self);
+	SurfScratch* s = ScratchFor(pSrc);
+	if (!d || !s)
 		return true;
 	BlitScratch(d, s,
 		pClip ? pClip->X : 0, pClip ? pClip->Y : 0,
@@ -251,9 +356,9 @@ static bool __fastcall Hook_CopyFrom(void* self, void* /*edx*/,
 	RectangleStruct* /*pClip*/, RectangleStruct* /*pClip2*/, Surface* pSrc,
 	RectangleStruct* pDest, RectangleStruct* pSrcRect, bool, bool)
 {
-	SurfScratch* d = FindScratch((Surface*)self);
-	SurfScratch* s = FindScratch(pSrc);
-	if (!d || !s || !d->Buf || !s->Buf)
+	SurfScratch* d = ScratchFor((Surface*)self);
+	SurfScratch* s = ScratchFor(pSrc);
+	if (!d || !s)
 		return true;
 	BlitScratch(d, s,
 		pDest ? pDest->X : 0, pDest ? pDest->Y : 0,
@@ -262,11 +367,7 @@ static bool __fastcall Hook_CopyFrom(void* self, void* /*edx*/,
 	return true;
 }
 
-// ---- vtable 补丁 -----------------------------------------------------------
-struct Patch { void** Orig; Fn* Patched; };
-Patch	g_patch[8];
-int		g_patchN = 0;
-
+// ---- 原地改写共享 vtable ---------------------------------------------------
 #define VS_COPYFROMWHOLE 1
 #define VS_COPYFROMPART  2
 #define VS_COPYFROM      3
@@ -275,98 +376,29 @@ int		g_patchN = 0;
 #define VS_CANLOCK       25
 #define VS_ISLOCKED      27
 
-static Fn* BuildPatchedVtbl(void** orig)
+static bool PatchVtableInPlace(void** vt)
 {
-	const int n = 40;
-	Fn* t = (Fn*)HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(Fn) * n);
-	if (!t)
-		return nullptr;
-	for (int i = 0; i < n; ++i)
-		t[i] = (Fn)orig[i];
-
-	t[VS_COPYFROMWHOLE + g_delta] = (Fn)&Hook_CopyFromWhole;
-	t[VS_COPYFROMPART + g_delta]  = (Fn)&Hook_CopyFromPart;
-	t[VS_COPYFROM + g_delta]      = (Fn)&Hook_CopyFrom;
-	t[VS_LOCK + g_delta]          = (Fn)&Hook_Lock;
-	t[VS_UNLOCK + g_delta]        = (Fn)&Hook_Unlock;
-	t[VS_CANLOCK + g_delta]       = (Fn)&Hook_CanLock;
-	t[VS_ISLOCKED + g_delta]      = (Fn)&Hook_IsLocked;
-	return t;
-}
-
-static bool PatchSurface(Surface* s, bool primary, const char* name)
-{
-	if (!s)
-		return false;
-
-	void** vt = *(void***)s;
-	if (!vt)
-		return false;
-
-	Fn* patched = nullptr;
-	for (int i = 0; i < g_patchN; ++i)
-		if (g_patch[i].Orig == vt)
-			patched = g_patch[i].Patched;
-
-	if (!patched)
+	constexpr int kSlots = 48;
+	DWORD oldProt = 0;
+	if (!VirtualProtect(vt, sizeof(void*) * kSlots, PAGE_READWRITE, &oldProt))
 	{
-		if (g_patchN >= 8)
-			return false;
-		patched = BuildPatchedVtbl(vt);
-		if (!patched)
-			return false;
-		g_patch[g_patchN].Orig = vt;
-		g_patch[g_patchN].Patched = patched;
-		++g_patchN;
-	}
-
-	if (g_scrN < kMaxSurfSlot && !FindScratch(s))
-	{
-		int pitch, bpp, w, h;
-		QueryFormat(s, pitch, bpp, w, h);
-		if (w <= 0 || h <= 0 || pitch <= 0)
-			return false;
-
-		SurfScratch& sc = g_scr[g_scrN];
-		sc.S = s;
-		sc.Pitch = pitch;
-		sc.Bpp = bpp;
-		sc.W = w;
-		sc.H = h;
-		sc.Name = name;
-		sc.NonZero = 0;
-		sc.Cap = (size_t)pitch * (size_t)h;
-
-		if (primary && g_sharedBase && sc.Cap + kPixelOffset <= (size_t)g_info->Pad)
-		{
-			sc.Buf = (uint8_t*)g_sharedBase + kPixelOffset;
-			sc.InShared = true;
-		}
-		else
-		{
-			sc.Buf = (uint8_t*)VirtualAlloc(nullptr, sc.Cap, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
-			sc.InShared = false;
-		}
-		if (!sc.Buf)
-			return false;
-
-		memset(sc.Buf, 0, sc.Cap);
-		++g_scrN;
-		Debug::Log("[DrawCapture] scratch %-10s %dx%d pitch=%d bpp=%d %p\n",
-			name, w, h, pitch, bpp, sc.Buf);
-	}
-
-	if (!FindScratch(s))
-	{
-		Debug::Log("[DrawCapture] %s has no scratch -> vtable NOT patched", name ? name : "?");
+		Debug::Log("[DrawCapture] VirtualProtect on vtable failed err=%lu\n", GetLastError());
 		return false;
 	}
 
-	*(void***)s = (void**)patched;
+	vt[VS_COPYFROMWHOLE + g_delta] = (void*)&Hook_CopyFromWhole;
+	vt[VS_COPYFROMPART + g_delta] = (void*)&Hook_CopyFromPart;
+	vt[VS_COPYFROM + g_delta] = (void*)&Hook_CopyFrom;
+	vt[VS_LOCK + g_delta] = (void*)&Hook_Lock;
+	vt[VS_UNLOCK + g_delta] = (void*)&Hook_Unlock;
+	vt[VS_CANLOCK + g_delta] = (void*)&Hook_CanLock;
+	vt[VS_ISLOCKED + g_delta] = (void*)&Hook_IsLocked;
+
+	VirtualProtect(vt, sizeof(void*) * kSlots, oldProt, &oldProt);
 	return true;
 }
 
-// ---- IAT：按名字匹配（只碰 user32 的具名项，最保守）------------------------
+// ---- IAT：按名字匹配，把鼠标捕获相关调用变空操作 --------------------------
 static BOOL WINAPI NoClipCursor(const RECT*) { return TRUE; }
 static HWND WINAPI NoSetCapture(HWND) { return nullptr; }
 
@@ -420,13 +452,12 @@ static void PatchInputHooks()
 	HMODULE game = GetModuleHandleW(nullptr);
 	if (!game)
 		return;
-
 	const bool a = PatchIATByName(game, "user32.dll", "ClipCursor", (void*)&NoClipCursor);
 	const bool b = PatchIATByName(game, "user32.dll", "SetCapture", (void*)&NoSetCapture);
-
 	ClipCursor(nullptr);
 	Debug::Log("[DrawCapture] input unlock: ClipCursor=%d SetCapture=%d\n", (int)a, (int)b);
 }
+
 // ---- 填充率采样 ------------------------------------------------------------
 static uint32_t SampleNonZero(const SurfScratch& sc) noexcept
 {
@@ -436,7 +467,7 @@ static uint32_t SampleNonZero(const SurfScratch& sc) noexcept
 	uint32_t nz = 0;
 	const int bpp = (sc.Bpp > 0) ? sc.Bpp : 2;
 	const size_t total = (size_t)sc.W * (size_t)sc.H;
-	const size_t step = 61;			// 质数步长，避开对齐偏差
+	const size_t step = 61;
 	for (size_t i = 0; i < total; i += step)
 	{
 		const size_t y = i / (size_t)sc.W;
@@ -466,15 +497,14 @@ bool DrawCapture::Install()
 	}
 
 	void** vt = *(void***)primary;
-
-	const bool anchored = LocateAnchor(vt, primary, g_delta);
-	if (!anchored)
+	if (!LocateAnchor(vt, primary, g_delta))
 	{
 		Debug::Log("[DrawCapture] anchor NOT found -> safe-fail: DDraw untouched\n");
 		return false;
 	}
 
-	int pitch, bpp, w, h;
+	// 共享内存（Primary 的像素直接放进去，外部 render 可零拷贝读取）
+	int pitch = 0, bpp = 0, w = 0, h = 0;
 	QueryFormat(primary, pitch, bpp, w, h);
 	const size_t pixCap = (size_t)pitch * (size_t)h;
 	const size_t total = kPixelOffset + pixCap + (1u << 20);
@@ -501,32 +531,37 @@ bool DrawCapture::Install()
 		Debug::Log("[DrawCapture] shared mem failed err=%lu, heap-only\n", GetLastError());
 	}
 
-	int ok = 0;
+	// ---- 关键：原地改写共享 vtable，一次性覆盖所有现存与将来的实例 ----
+	const bool patched = PatchVtableInPlace(vt);
+	if (!patched)
+		return false;
+
+	// 已知面先建好 scratch（Primary 用共享内存那块）
 	__try
 	{
-		if (PatchSurface(DSurface::Primary, true, "Primary"))     ++ok;
-		if (PatchSurface(DSurface::Composite, false, "Composite")) ++ok;
-		if (PatchSurface(DSurface::Hidden, false, "Hidden"))       ++ok;
-		if (PatchSurface(DSurface::Sidebar, false, "Sidebar"))     ++ok;
-		if (PatchSurface(DSurface::Alternate, false, "Alternate")) ++ok;
-		if (PatchSurface(DSurface::Temp, false, "Temp"))           ++ok;
-		if (PatchSurface(DSurface::Tile, false, "Tile"))           ++ok;
+		EnsureScratch(DSurface::Primary, true, "Primary");
+		EnsureScratch(DSurface::Hidden, false, "Hidden");
+		EnsureScratch(DSurface::Composite, false, "Composite");
+		EnsureScratch(DSurface::Sidebar, false, "Sidebar");
+		EnsureScratch(DSurface::Alternate, false, "Alternate");
+		EnsureScratch(DSurface::Temp, false, "Temp");
+		EnsureScratch(DSurface::Tile, false, "Tile");
 	}
 	__except (EXCEPTION_EXECUTE_HANDLER)
 	{
-		Debug::Log("[DrawCapture] exception during patching\n");
+		Debug::Log("[DrawCapture] exception while preparing scratches\n");
 	}
 
 	PatchInputHooks();
 	HideGameWindows();
 
 	if (g_info)
-		g_info->Opaque = ok > 0 ? 1u : 0u;
+		g_info->Opaque = 1u;
 
-	g_installed = (ok > 0);
-	Debug::Log("[DrawCapture] installed=%d, %d surfaces, delta=%d, shared=%p\n",
-		(int)g_installed, ok, g_delta, g_sharedBase);
-	return g_installed;
+	g_installed = true;
+	Debug::Log("[DrawCapture] installed, vtable patched in place (delta=%d), %d scratches, %llu bytes\n",
+		g_delta, g_scrN, (unsigned long long)g_scratchUsed);
+	return true;
 }
 
 bool DrawCapture::IsInstalled()
@@ -546,22 +581,21 @@ void DrawCapture::Publish()
 		InterlockedExchange((volatile LONG*)&g_info->Epoch, (LONG)(g_frames + 1));
 	}
 
-	// 每 2 秒报一次各面填充率，直接看出画面落在哪块
 	const uint64_t now = GetTickCount64();
-	if (g_installed && now - g_lastStatTick >= 2000)
+	if (g_installed && now - g_lastStatTick >= 3000)
 	{
 		g_lastStatTick = now;
 		for (int i = 0; i < g_scrN; ++i)
 			g_scr[i].NonZero = SampleNonZero(g_scr[i]);
 
-		char buf[512];
+		char buf[640];
 		int n = 0;
-		for (int i = 0; i < g_scrN && n < 460; ++i)
+		for (int i = 0; i < g_scrN && n < 560; ++i)
 		{
 			n += sprintf_s(buf + n, sizeof(buf) - n, "%s=%u ",
-				g_scr[i].Name ? g_scr[i].Name : "?", g_scr[i].NonZero);
+				g_scr[i].Name ? g_scr[i].Name : "auto", g_scr[i].NonZero);
 		}
-		Debug::Log("[DrawCapture] fill: %s | locks=%llu blits=%llu\n",
+		Debug::Log("[DrawCapture] fill: %s| locks=%llu blits=%llu\n",
 			buf, (unsigned long long)g_locks, (unsigned long long)g_blits);
 	}
 }
@@ -570,10 +604,10 @@ bool DrawCapture::GetFrame(void** pixels, int* width, int* height, int* pitch, i
 {
 	if (pixels) *pixels = nullptr;
 
-	// 选"最满"的那块；同等时优先 Primary
 	SurfScratch* best = nullptr;
-	uint32_t bestNz = 0;
 	SurfScratch* primaryScr = nullptr;
+	uint32_t bestNz = 0;
+
 	for (int i = 0; i < g_scrN; ++i)
 	{
 		SurfScratch& sc = g_scr[i];
@@ -581,15 +615,14 @@ bool DrawCapture::GetFrame(void** pixels, int* width, int* height, int* pitch, i
 			continue;
 		if (sc.Name && strcmp(sc.Name, "Primary") == 0)
 			primaryScr = &sc;
-		const uint32_t nz = sc.NonZero;
-		if (!best || nz > bestNz || (nz == bestNz && sc.Name && sc.Name[0] == 'P'))
+		if (!best || sc.NonZero > bestNz)
 		{
 			best = &sc;
-			bestNz = nz;
+			bestNz = sc.NonZero;
 		}
 	}
 
-	// Primary 才是最终合成画面（sidebar + UI + 动画都在这一步叠上去）
+	// Primary 是最终合成画面（sidebar / UI / 动画都叠在上面）
 	if (primaryScr && primaryScr->Buf && primaryScr->NonZero > 0)
 		best = primaryScr;
 
