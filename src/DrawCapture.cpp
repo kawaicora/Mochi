@@ -284,9 +284,9 @@ static Fn* BuildPatchedVtbl(void** orig)
 	for (int i = 0; i < n; ++i)
 		t[i] = (Fn)orig[i];
 
-	// t[VS_COPYFROMWHOLE + g_delta] = (Fn)&Hook_CopyFromWhole;	// 签名未证实，先摘掉
-	// t[VS_COPYFROMPART + g_delta]  = (Fn)&Hook_CopyFromPart;	// 签名未证实，先摘掉
-	// t[VS_COPYFROM + g_delta]      = (Fn)&Hook_CopyFrom;	// 签名未证实，先摘掉
+	t[VS_COPYFROMWHOLE + g_delta] = (Fn)&Hook_CopyFromWhole;
+	t[VS_COPYFROMPART + g_delta]  = (Fn)&Hook_CopyFromPart;
+	t[VS_COPYFROM + g_delta]      = (Fn)&Hook_CopyFrom;
 	t[VS_LOCK + g_delta]          = (Fn)&Hook_Lock;
 	t[VS_UNLOCK + g_delta]        = (Fn)&Hook_Unlock;
 	t[VS_CANLOCK + g_delta]       = (Fn)&Hook_CanLock;
@@ -573,11 +573,14 @@ bool DrawCapture::GetFrame(void** pixels, int* width, int* height, int* pitch, i
 	// 选"最满"的那块；同等时优先 Primary
 	SurfScratch* best = nullptr;
 	uint32_t bestNz = 0;
+	SurfScratch* primaryScr = nullptr;
 	for (int i = 0; i < g_scrN; ++i)
 	{
 		SurfScratch& sc = g_scr[i];
 		if (!sc.Buf)
 			continue;
+		if (sc.Name && strcmp(sc.Name, "Primary") == 0)
+			primaryScr = &sc;
 		const uint32_t nz = sc.NonZero;
 		if (!best || nz > bestNz || (nz == bestNz && sc.Name && sc.Name[0] == 'P'))
 		{
@@ -585,6 +588,10 @@ bool DrawCapture::GetFrame(void** pixels, int* width, int* height, int* pitch, i
 			bestNz = nz;
 		}
 	}
+
+	// Primary 才是最终合成画面（sidebar + UI + 动画都在这一步叠上去）
+	if (primaryScr && primaryScr->Buf && primaryScr->NonZero > 0)
+		best = primaryScr;
 
 	if (best && best->Buf)
 	{

@@ -29,6 +29,8 @@ void*		g_bits = nullptr;
 int			g_dibW = 0, g_dibH = 0;		// DIB 尺寸 = 游戏 surface 尺寸
 int			g_winW = 0, g_winH = 0;		// 窗口客户区
 bool		g_classReady = false;
+bool		g_fullscreen  = false;
+RECT		g_savedRect   = {};
 uint64_t	g_lastTitleTick = 0;
 uint32_t	g_shownFrames = 0;
 
@@ -167,6 +169,75 @@ static void ForwardMouse(UINT msg, WPARAM wp, LPARAM lp)
 	PostMessageW(g_gameHwnd, msg, wp, MAKELPARAM(sx, sy));
 }
 
+// 让 gamemd 窗口的客户区与预览窗客户区完全重合（屏幕坐标一致）。
+// 这样 DirectInput 读到的光标位置才落在游戏期望的坐标系里，
+// PostMessage 转发也不需要再做偏移补偿。
+static void SyncGameWindowGeometry()
+{
+	if (!g_hwnd || !g_gameHwnd)
+		return;
+
+	RECT prc{};
+	if (!GetClientRect(g_hwnd, &prc))
+		return;
+	const int cw = prc.right - prc.left;
+	const int ch = prc.bottom - prc.top;
+	if (cw <= 0 || ch <= 0)
+		return;
+
+	POINT origin{ 0, 0 };
+	if (!ClientToScreen(g_hwnd, &origin))
+		return;
+
+	RECT gwr{}, gcr{};
+	int offX = 0, offY = 0, wBorders = 0, hBorders = 0;
+	if (GetWindowRect(g_gameHwnd, &gwr) && GetClientRect(g_gameHwnd, &gcr))
+	{
+		POINT gc{ 0, 0 };
+		ClientToScreen(g_gameHwnd, &gc);
+		offX = gc.x - gwr.left;
+		offY = gc.y - gwr.top;
+		wBorders = (gwr.right - gwr.left) - (gcr.right - gcr.left);
+		hBorders = (gwr.bottom - gwr.top) - (gcr.bottom - gcr.top);
+		if (wBorders < 0) wBorders = 0;
+		if (hBorders < 0) hBorders = 0;
+	}
+
+	SetWindowPos(g_gameHwnd, nullptr,
+		origin.x - offX, origin.y - offY,
+		cw + wBorders, ch + hBorders,
+		SWP_NOZORDER | SWP_NOACTIVATE);
+}
+
+static void ToggleFullscreen(HWND h)
+{
+	HMONITOR mon = MonitorFromWindow(h, MONITOR_DEFAULTTONEAREST);
+	MONITORINFO mi{};
+	mi.cbSize = sizeof(mi);
+	if (!GetMonitorInfoW(mon, &mi))
+		return;
+
+	if (!g_fullscreen)
+	{
+		GetWindowRect(h, &g_savedRect);
+		SetWindowLongPtrW(h, GWL_STYLE, WS_POPUP | WS_VISIBLE);
+		SetWindowPos(h, HWND_TOP, mi.rcMonitor.left, mi.rcMonitor.top,
+			mi.rcMonitor.right - mi.rcMonitor.left,
+			mi.rcMonitor.bottom - mi.rcMonitor.top,
+			SWP_FRAMECHANGED);
+		g_fullscreen = true;
+	}
+	else
+	{
+		SetWindowLongPtrW(h, GWL_STYLE, WS_OVERLAPPEDWINDOW | WS_VISIBLE);
+		SetWindowPos(h, HWND_TOP, g_savedRect.left, g_savedRect.top,
+			g_savedRect.right - g_savedRect.left,
+			g_savedRect.bottom - g_savedRect.top,
+			SWP_FRAMECHANGED);
+		g_fullscreen = false;
+	}
+	SyncGameWindowGeometry();
+}
 LRESULT CALLBACK PreviewProc(HWND h, UINT msg, WPARAM wp, LPARAM lp)
 {
 	switch (msg)
@@ -213,14 +284,29 @@ LRESULT CALLBACK PreviewProc(HWND h, UINT msg, WPARAM wp, LPARAM lp)
 		}
 		return 0;
 
-	case WM_KEYDOWN:
 	case WM_KEYUP:
-	case WM_SYSKEYDOWN:
 	case WM_SYSKEYUP:
 	case WM_CHAR:
 		if (g_gameHwnd)
 			PostMessageW(g_gameHwnd, msg, wp, lp);
 		return 0;
+
+	case WM_KEYDOWN:
+	case WM_SYSKEYDOWN:
+		if (wp == VK_F11 || (wp == VK_RETURN && (GetKeyState(VK_MENU) & 0x8000)))
+		{
+			ToggleFullscreen(h);
+			return 0;
+		}
+		if (g_gameHwnd)
+			PostMessageW(g_gameHwnd, msg, wp, lp);
+		return 0;
+
+	case WM_WINDOWPOSCHANGED:
+	case WM_SIZE:
+	case WM_MOVE:
+		SyncGameWindowGeometry();
+		break;
 
 	case WM_CLOSE:
 		ShowWindow(h, SW_HIDE);
