@@ -1,12 +1,21 @@
 ﻿//=============================================================================
-//  PreviewWindow.cpp — 显示 DrawCapture 暴露的**真实像素**
+//  PreviewWindow.cpp — 显示 DrawCapture 暴露的真实像素
 //  ---------------------------------------------------------------------------
-//  这里不做任何重新光栅化。像素来源有两条（见 DrawCapture::GetFrame）：
+//  像素来源（见 DrawCapture::GetFrame）：
 //    A) 已重定向：原版绘制代码画进我们的常驻缓冲 —— 与原本像素级一致
 //    B) 安全失败：直读真实 DDraw surface —— 本身就是原版画面
-//  所以预览窗里看到的就是游戏原本该有的样子。
 //
-//  另负责把鼠标/键盘事件转发回 gamemd 的窗口。
+//  【几何：预览窗跟随 gamemd，而不是反过来】
+//    预览窗的**客户区**始终等于 gamemd 窗口的**客户区**（屏幕坐标一致）。
+//    这样：
+//      * 光标即使被 ClipCursor 锁定，也正好落在窗口范围内
+//      * DirectInput 读到的光标位置就是游戏期望的坐标系，不需要任何偏移补偿
+//      * 鼠标转发也可以 1:1 直传
+//
+//  【全屏：只跟随，不自己决定】
+//    不做任何独立的 F11/Alt+Enter 切换。检测 gamemd 窗口是否覆盖了整个
+//    显示器：是则预览窗用 WS_POPUP 铺满同一块区域，否则用普通窗口样式。
+//    即「原本窗口全屏，预览就全屏」。
 //=============================================================================
 #include "PreviewWindow.h"
 
@@ -27,12 +36,22 @@ HDC			g_memDC = nullptr;
 HBITMAP		g_bmp = nullptr;
 void*		g_bits = nullptr;
 int			g_dibW = 0, g_dibH = 0;		// DIB 尺寸 = 游戏 surface 尺寸
-int			g_winW = 0, g_winH = 0;		// 窗口客户区
 bool		g_classReady = false;
-bool		g_fullscreen  = false;
-RECT		g_savedRect   = {};
 uint64_t	g_lastTitleTick = 0;
 uint32_t	g_shownFrames = 0;
+
+// 几何同步的去重状态
+struct GeoKey
+{
+	int  x, y, cw, ch;
+	bool fullscreen;
+	bool operator==(const GeoKey& o) const
+	{
+		return x == o.x && y == o.y && cw == o.cw && ch == o.ch && fullscreen == o.fullscreen;
+	}
+};
+GeoKey		g_lastGeo = { 0, 0, 0, 0, false };
+bool		g_geoValid = false;
 
 // ---- 像素格式转换：游戏缓冲 -> 32bpp DIB -----------------------------------
 static void ConvertToDib(const void* src, int srcW, int srcH, int srcPitch, int bpp)
@@ -89,6 +108,38 @@ static void ConvertToDib(const void* src, int srcW, int srcH, int srcPitch, int 
 	}
 }
 
+static bool RecreateDib(int w, int h)
+{
+	if (g_bmp && g_dibW == w && g_dibH == h)
+		return true;
+
+	if (g_bmp)   { DeleteObject(g_bmp); g_bmp = nullptr; }
+	if (g_memDC) { DeleteDC(g_memDC);     g_memDC = nullptr; }
+	g_bits = nullptr;
+
+	BITMAPINFO bi{};
+	bi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+	bi.bmiHeader.biWidth = w;
+	bi.bmiHeader.biHeight = -h;			// top-down
+	bi.bmiHeader.biPlanes = 1;
+	bi.bmiHeader.biBitCount = 32;
+	bi.bmiHeader.biCompression = BI_RGB;
+
+	HDC screen = GetDC(nullptr);
+	g_bmp = CreateDIBSection(screen, &bi, DIB_RGB_COLORS, &g_bits, nullptr, 0);
+	ReleaseDC(nullptr, screen);
+	if (!g_bmp || !g_bits)
+		return false;
+
+	g_memDC = CreateCompatibleDC(nullptr);
+	if (!g_memDC)
+		return false;
+	SelectObject(g_memDC, g_bmp);
+	g_dibW = w;
+	g_dibH = h;
+	return true;
+}
+
 static void RefreshFromGame()
 {
 	void* bits = nullptr;
@@ -96,36 +147,15 @@ static void RefreshFromGame()
 	if (!DrawCapture::GetFrame(&bits, &w, &h, &pitch, &bpp) || !bits)
 		return;
 
-	// surface 尺寸变了就重建 DIB
 	if (w != g_dibW || h != g_dibH)
 	{
-		BITMAPINFO bi{};
-		bi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
-		bi.bmiHeader.biWidth = w;
-		bi.bmiHeader.biHeight = -h;
-		bi.bmiHeader.biPlanes = 1;
-		bi.bmiHeader.biBitCount = 32;
-		bi.bmiHeader.biCompression = BI_RGB;
-
-		if (g_bmp) { DeleteObject(g_bmp); g_bmp = nullptr; }
-		if (g_memDC) { DeleteDC(g_memDC); g_memDC = nullptr; }
-
-		HDC screen = GetDC(nullptr);
-		g_bmp = CreateDIBSection(screen, &bi, DIB_RGB_COLORS, &g_bits, nullptr, 0);
-		ReleaseDC(nullptr, screen);
-		if (!g_bmp || !g_bits)
+		if (!RecreateDib(w, h))
 			return;
-		g_memDC = CreateCompatibleDC(nullptr);
-		if (!g_memDC)
-			return;
-		SelectObject(g_memDC, g_bmp);
-		g_dibW = w;
-		g_dibH = h;
 	}
 
 	ConvertToDib(bits, w, h, pitch, bpp);
 
-	// 走退路时（真实 surface 被临时锁），用完解锁；重定向模式下这是空操作
+	// 走退路时（临时锁了真实 surface）用完解锁；重定向模式下是空操作
 	__try
 	{
 		if (DSurface::Primary)
@@ -150,94 +180,102 @@ static void RefreshFromGame()
 	}
 }
 
-// ---- 输入转发 --------------------------------------------------------------
+//=============================================================================
+// 几何同步：预览窗客户区 == gamemd 客户区（屏幕坐标一致）
+//=============================================================================
+static void SyncPreviewToGame()
+{
+	if (!g_hwnd || !g_gameHwnd)
+		return;
+
+	RECT gr{};
+	if (!GetWindowRect(g_gameHwnd, &gr))
+		return;
+
+	// gamemd 窗口是否覆盖整个显示器（= 全屏）
+	bool gameFullscreen = false;
+	HMONITOR mon = MonitorFromWindow(g_gameHwnd, MONITOR_DEFAULTTONEAREST);
+	MONITORINFO mi{};
+	mi.cbSize = sizeof(mi);
+	if (GetMonitorInfoW(mon, &mi))
+	{
+		const RECT& m = mi.rcMonitor;
+		gameFullscreen =
+			gr.left <= m.left && gr.top <= m.top &&
+			gr.right >= m.right && gr.bottom >= m.bottom;
+	}
+
+	// 目标客户区（屏幕坐标）
+	POINT gc{ 0, 0 };
+	if (!ClientToScreen(g_gameHwnd, &gc))
+		return;
+	RECT gcr{};
+	if (!GetClientRect(g_gameHwnd, &gcr))
+		return;
+	const int cw = gcr.right - gcr.left;
+	const int ch = gcr.bottom - gcr.top;
+	if (cw <= 0 || ch <= 0)
+		return;
+
+	GeoKey key{ gc.x, gc.y, cw, ch, gameFullscreen };
+	if (g_geoValid && key == g_lastGeo)
+		return;						// 没变就不动窗口，避免每帧抖动
+
+	g_lastGeo = key;
+	g_geoValid = true;
+
+	// 样式只跟随：原本全屏就 WS_POPUP，否则普通窗口
+	const LONG_PTR wantStyle = (gameFullscreen ? WS_POPUP : WS_OVERLAPPEDWINDOW) | WS_VISIBLE;
+	if (GetWindowLongPtrW(g_hwnd, GWL_STYLE) != wantStyle)
+		SetWindowLongPtrW(g_hwnd, GWL_STYLE, wantStyle);
+
+	// 算出预览窗自身的非客户区尺寸
+	RECT pwr{}, pcr{};
+	GetWindowRect(g_hwnd, &pwr);
+	GetClientRect(g_hwnd, &pcr);
+	POINT pc{ 0, 0 };
+	ClientToScreen(g_hwnd, &pc);
+	int offX = pc.x - pwr.left;
+	int offY = pc.y - pwr.top;
+	int wb = (pwr.right - pwr.left) - (pcr.right - pcr.left);
+	int hb = (pwr.bottom - pwr.top) - (pcr.bottom - pcr.top);
+	if (wb < 0) wb = 0;
+	if (hb < 0) hb = 0;
+
+	SetWindowPos(g_hwnd, HWND_TOP,
+		gc.x - offX, gc.y - offY,
+		cw + wb, ch + hb,
+		SWP_NOACTIVATE | SWP_FRAMECHANGED);
+
+	Debug::Log("[Preview] follow game rect client=(%d,%d) %dx%d fullscreen=%d\n",
+		gc.x, gc.y, cw, ch, (int)gameFullscreen);
+}
+
+// ---- 输入转发：客户区 1:1 映射到 surface --------------------------------
 static void ForwardMouse(UINT msg, WPARAM wp, LPARAM lp)
 {
 	if (!g_gameHwnd || !g_hwnd)
 		return;
+
 	RECT rc{};
 	if (!GetClientRect(g_hwnd, &rc))
 		return;
-	const int cw = rc.right, ch = rc.bottom;
+	const int cw = rc.right - rc.left;
+	const int ch = rc.bottom - rc.top;
 	if (cw <= 0 || ch <= 0 || g_dibW <= 0 || g_dibH <= 0)
 		return;
 
 	const int cx = (int)(short)LOWORD(lp);
 	const int cy = (int)(short)HIWORD(lp);
+
+	// 两边客户区已经对齐，正常情况下 sx/cx 是 1:1；
+	// 这里仍按比例换算，兼容 surface 尺寸与客户区不一致的情形。
 	const int sx = (int)((int64_t)cx * g_dibW / cw);
 	const int sy = (int)((int64_t)cy * g_dibH / ch);
+
 	PostMessageW(g_gameHwnd, msg, wp, MAKELPARAM(sx, sy));
 }
 
-// 让 gamemd 窗口的客户区与预览窗客户区完全重合（屏幕坐标一致）。
-// 这样 DirectInput 读到的光标位置才落在游戏期望的坐标系里，
-// PostMessage 转发也不需要再做偏移补偿。
-static void SyncGameWindowGeometry()
-{
-	if (!g_hwnd || !g_gameHwnd)
-		return;
-
-	RECT prc{};
-	if (!GetClientRect(g_hwnd, &prc))
-		return;
-	const int cw = prc.right - prc.left;
-	const int ch = prc.bottom - prc.top;
-	if (cw <= 0 || ch <= 0)
-		return;
-
-	POINT origin{ 0, 0 };
-	if (!ClientToScreen(g_hwnd, &origin))
-		return;
-
-	RECT gwr{}, gcr{};
-	int offX = 0, offY = 0, wBorders = 0, hBorders = 0;
-	if (GetWindowRect(g_gameHwnd, &gwr) && GetClientRect(g_gameHwnd, &gcr))
-	{
-		POINT gc{ 0, 0 };
-		ClientToScreen(g_gameHwnd, &gc);
-		offX = gc.x - gwr.left;
-		offY = gc.y - gwr.top;
-		wBorders = (gwr.right - gwr.left) - (gcr.right - gcr.left);
-		hBorders = (gwr.bottom - gwr.top) - (gcr.bottom - gcr.top);
-		if (wBorders < 0) wBorders = 0;
-		if (hBorders < 0) hBorders = 0;
-	}
-
-	SetWindowPos(g_gameHwnd, nullptr,
-		origin.x - offX, origin.y - offY,
-		cw + wBorders, ch + hBorders,
-		SWP_NOZORDER | SWP_NOACTIVATE);
-}
-
-static void ToggleFullscreen(HWND h)
-{
-	HMONITOR mon = MonitorFromWindow(h, MONITOR_DEFAULTTONEAREST);
-	MONITORINFO mi{};
-	mi.cbSize = sizeof(mi);
-	if (!GetMonitorInfoW(mon, &mi))
-		return;
-
-	if (!g_fullscreen)
-	{
-		GetWindowRect(h, &g_savedRect);
-		SetWindowLongPtrW(h, GWL_STYLE, WS_POPUP | WS_VISIBLE);
-		SetWindowPos(h, HWND_TOP, mi.rcMonitor.left, mi.rcMonitor.top,
-			mi.rcMonitor.right - mi.rcMonitor.left,
-			mi.rcMonitor.bottom - mi.rcMonitor.top,
-			SWP_FRAMECHANGED);
-		g_fullscreen = true;
-	}
-	else
-	{
-		SetWindowLongPtrW(h, GWL_STYLE, WS_OVERLAPPEDWINDOW | WS_VISIBLE);
-		SetWindowPos(h, HWND_TOP, g_savedRect.left, g_savedRect.top,
-			g_savedRect.right - g_savedRect.left,
-			g_savedRect.bottom - g_savedRect.top,
-			SWP_FRAMECHANGED);
-		g_fullscreen = false;
-	}
-	SyncGameWindowGeometry();
-}
 LRESULT CALLBACK PreviewProc(HWND h, UINT msg, WPARAM wp, LPARAM lp)
 {
 	switch (msg)
@@ -284,29 +322,14 @@ LRESULT CALLBACK PreviewProc(HWND h, UINT msg, WPARAM wp, LPARAM lp)
 		}
 		return 0;
 
+	case WM_KEYDOWN:
 	case WM_KEYUP:
+	case WM_SYSKEYDOWN:
 	case WM_SYSKEYUP:
 	case WM_CHAR:
 		if (g_gameHwnd)
 			PostMessageW(g_gameHwnd, msg, wp, lp);
 		return 0;
-
-	case WM_KEYDOWN:
-	case WM_SYSKEYDOWN:
-		if (wp == VK_F11 || (wp == VK_RETURN && (GetKeyState(VK_MENU) & 0x8000)))
-		{
-			ToggleFullscreen(h);
-			return 0;
-		}
-		if (g_gameHwnd)
-			PostMessageW(g_gameHwnd, msg, wp, lp);
-		return 0;
-
-	case WM_WINDOWPOSCHANGED:
-	case WM_SIZE:
-	case WM_MOVE:
-		SyncGameWindowGeometry();
-		break;
 
 	case WM_CLOSE:
 		ShowWindow(h, SW_HIDE);
@@ -380,42 +403,20 @@ bool PreviewWindow::Create()
 		__except (EXCEPTION_EXECUTE_HANDLER) {}
 	}
 
-	g_dibW = w;
-	g_dibH = h;
-
-	BITMAPINFO bi{};
-	bi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
-	bi.bmiHeader.biWidth = w;
-	bi.bmiHeader.biHeight = -h;
-	bi.bmiHeader.biPlanes = 1;
-	bi.bmiHeader.biBitCount = 32;
-	bi.bmiHeader.biCompression = BI_RGB;
-
-	HDC screen = GetDC(nullptr);
-	g_bmp = CreateDIBSection(screen, &bi, DIB_RGB_COLORS, &g_bits, nullptr, 0);
-	ReleaseDC(nullptr, screen);
-	if (!g_bmp || !g_bits)
+	if (!RecreateDib(w, h))
 	{
 		Debug::Log("[Preview] CreateDIBSection failed\n");
 		return false;
 	}
 
-	g_memDC = CreateCompatibleDC(nullptr);
-	if (!g_memDC)
-		return false;
-	SelectObject(g_memDC, g_bmp);
+	if (!g_gameHwnd)
+		g_gameHwnd = FindGameWindow();
 
-	int maxW = 1280, maxH = 800;
-	g_winW = w;
-	g_winH = h;
-	if (g_winW > maxW) { g_winH = (int)((int64_t)g_winH * maxW / g_winW); g_winW = maxW; }
-	if (g_winH > maxH) { g_winW = (int)((int64_t)g_winW * maxH / g_winH); g_winH = maxH; }
-
-	RECT wr{ 0, 0, g_winW, g_winH };
+	RECT wr{ 0, 0, w, h };
 	AdjustWindowRectEx(&wr, WS_OVERLAPPEDWINDOW, FALSE, 0);
 
 	g_hwnd = CreateWindowExW(WS_EX_TOPMOST, kClassName, L"Mochi Preview",
-		WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT,
+		WS_OVERLAPPEDWINDOW | WS_VISIBLE, CW_USEDEFAULT, CW_USEDEFAULT,
 		wr.right - wr.left, wr.bottom - wr.top,
 		nullptr, nullptr, (HINSTANCE)GetModuleHandleW(nullptr), nullptr);
 
@@ -425,14 +426,11 @@ bool PreviewWindow::Create()
 		return false;
 	}
 
-	ShowWindow(g_hwnd, SW_SHOW);
-	UpdateWindow(g_hwnd);
+	// 创建后立刻跟随 gamemd 的 RECT（含全屏判定）
+	g_geoValid = false;
+	SyncPreviewToGame();
 
-	if (!g_gameHwnd)
-		g_gameHwnd = FindGameWindow();
-
-	Debug::Log("[Preview] ready %dx%d (surface %dx%d), input target=%p\n",
-		g_winW, g_winH, w, h, g_gameHwnd);
+	Debug::Log("[Preview] ready, surface %dx%d, input target=%p\n", w, h, g_gameHwnd);
 	return true;
 }
 
@@ -440,6 +438,8 @@ void PreviewWindow::RenderFrame()
 {
 	if (!g_hwnd)
 		return;
+
+	SyncPreviewToGame();		// 游戏改窗口/切全屏时，预览跟着走
 	RefreshFromGame();
 	InvalidateRect(g_hwnd, nullptr, FALSE);
 }
@@ -460,4 +460,5 @@ HWND PreviewWindow::GetHwnd()
 void PreviewWindow::SetInputTarget(HWND gameHwnd)
 {
 	g_gameHwnd = gameHwnd;
+	g_geoValid = false;
 }
