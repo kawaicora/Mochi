@@ -39,6 +39,8 @@ int			g_dibW = 0, g_dibH = 0;		// DIB 尺寸 = 游戏 surface 尺寸
 bool		g_classReady = false;
 uint64_t	g_lastTitleTick = 0;
 uint32_t	g_shownFrames = 0;
+int			g_selIdx = -1;		// 当前显示的 surface 下标
+const char*	g_selName = "?";
 
 // 几何同步的去重状态
 struct GeoKey
@@ -142,10 +144,30 @@ static bool RecreateDib(int w, int h)
 
 static void RefreshFromGame()
 {
-	void* bits = nullptr;
-	int w = 0, h = 0, pitch = 0, bpp = 2;
-	if (!DrawCapture::GetFrame(&bits, &w, &h, &pitch, &bpp) || !bits)
+	const int count = DrawCapture::GetSurfaceCount();
+	if (count <= 0)
 		return;
+	if (g_selIdx < 0 || g_selIdx >= count)
+	{
+		g_selIdx = 0;
+		for (int i = 0; i < count; ++i)
+		{
+			DrawCapture::SurfaceInfo probe{};
+			if (DrawCapture::GetSurfaceInfo(i, probe) && probe.Name && strcmp(probe.Name, "Hidden") == 0)
+			{
+				g_selIdx = i;
+				break;
+			}
+		}
+	}
+
+	DrawCapture::SurfaceInfo si{};
+	if (!DrawCapture::GetSurfaceInfo(g_selIdx, si) || !si.Pixels)
+		return;
+	g_selName = si.Name ? si.Name : "?";
+
+	void* bits = si.Pixels;
+	int w = si.Width, h = si.Height, pitch = si.Pitch, bpp = si.Bpp;
 
 	if (w != g_dibW || h != g_dibH)
 	{
@@ -171,8 +193,8 @@ static void RefreshFromGame()
 		g_lastTitleTick = now;
 		const DrawCapture::Stats st = DrawCapture::GetStats();
 		wchar_t buf[256];
-		swprintf_s(buf, L"Mochi Preview %dx%d bpp=%d %s frames=%u locks=%llu",
-			w, h, bpp,
+		swprintf_s(buf, L"Mochi Preview surf=%S %dx%d bpp=%d %s frames=%u locks=%llu",
+			g_selName, w, h, bpp,
 			DrawCapture::IsInstalled() ? L"[capture]" : L"[passthrough]",
 			g_shownFrames, (unsigned long long)st.Locks);
 		SetWindowTextW(g_hwnd, buf);
@@ -323,6 +345,18 @@ LRESULT CALLBACK PreviewProc(HWND h, UINT msg, WPARAM wp, LPARAM lp)
 		return 0;
 
 	case WM_KEYDOWN:
+		// F1 / F2 在本窗口内切换要显示哪一块 surface，不转发给游戏
+		if (wp == VK_F1 || wp == VK_F2)
+		{
+			const int n = DrawCapture::GetSurfaceCount();
+			if (n > 0)
+				g_selIdx = (wp == VK_F2) ? (g_selIdx + 1) % n : (g_selIdx + n - 1) % n;
+			return 0;
+		}
+		if (g_gameHwnd)
+			PostMessageW(g_gameHwnd, msg, wp, lp);
+		return 0;
+
 	case WM_KEYUP:
 	case WM_SYSKEYDOWN:
 	case WM_SYSKEYUP:

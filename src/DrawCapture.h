@@ -75,6 +75,22 @@ public:
 	// 返回 false 表示还没准备好。pixels 指向稳定的常驻内存，只读。
 	static bool GetFrame(void** pixels, int* width, int* height, int* pitch, int* bpp);
 
+	// 从程序里查询「当前有哪些 surface、各自尺寸/像素/锁定次数」
+	// 用于让使用者指认某块面装的是哪个界面（加载/设置/计分板/小地图）
+	struct SurfaceInfo
+	{
+		const char*	Name;
+		int			Width;
+		int			Height;
+		int			Pitch;
+		int			Bpp;
+		void*		Pixels;
+		uint64_t	LockCount;
+		uint32_t	NonZero;
+	};
+	static int  GetSurfaceCount();
+	static bool GetSurfaceInfo(int index, SurfaceInfo& out);
+
 	static void HideGameWindows();
 
 	struct Stats

@@ -612,26 +612,38 @@ bool DrawCapture::GetFrame(void** pixels, int* width, int* height, int* pitch, i
 	// 显示"游戏当前正在画的那一块"：按最后锁定时刻取最新，并列时优先 Primary。
 	// 加载界面 / 设置面板 / 计分板这些换面的时刻会自动跟随，
 	// 不需要我们猜它到底用的是哪一个 surface。
+	// Primary 是最终合成画面：tactical 视图、sidebar、UI、动画都叠在它上面。
+	// 固定 Primary，不按最后被锁的面来选（每帧各面都会被锁，那样等于随机跳面）。
 	SurfScratch* best = nullptr;
-	uint32_t bestTick = 0;
-	uint64_t bestLocks = 0;
 
 	for (int i = 0; i < g_scrN; ++i)
 	{
 		SurfScratch& sc = g_scr[i];
 		if (!sc.Buf)
 			continue;
-		const bool isPrimary = (sc.Name && strcmp(sc.Name, "Primary") == 0);
-		if (!best ||
-			sc.LastTick > bestTick ||
-			(sc.LastTick == bestTick && sc.LockCount > bestLocks) ||
-			(sc.LastTick == bestTick && sc.LockCount == bestLocks && isPrimary))
+		if (sc.Name && strcmp(sc.Name, "Primary") == 0)
 		{
 			best = &sc;
-			bestTick = sc.LastTick;
-			bestLocks = sc.LockCount;
+			break;
 		}
 	}
+
+	if (!best)
+	{
+		uint64_t bestLocks = 0;
+		for (int i = 0; i < g_scrN; ++i)
+		{
+			SurfScratch& sc = g_scr[i];
+			if (!sc.Buf)
+				continue;
+			if (!best || sc.LockCount > bestLocks)
+			{
+				best = &sc;
+				bestLocks = sc.LockCount;
+			}
+		}
+	}
+
 	if (best && best->Buf)
 	{
 		if (pixels) *pixels = best->Buf;
@@ -692,6 +704,30 @@ void DrawCapture::HideGameWindows()
 	c.Hidden = 0;
 	EnumWindows(EnumHideProc, (LPARAM)&c);
 	Debug::Log("[DrawCapture] hid %d window(s)\n", c.Hidden);
+}
+
+//=============================================================================
+// 枚举已接管的 surface（供预览/调试指认）
+//=============================================================================
+int DrawCapture::GetSurfaceCount()
+{
+	return g_scrN;
+}
+
+bool DrawCapture::GetSurfaceInfo(int index, SurfaceInfo& out)
+{
+	if (index < 0 || index >= g_scrN)
+		return false;
+	const SurfScratch& sc = g_scr[index];
+	out.Name = sc.Name ? sc.Name : "(auto)";
+	out.Width = sc.W;
+	out.Height = sc.H;
+	out.Pitch = sc.Pitch;
+	out.Bpp = sc.Bpp;
+	out.Pixels = sc.Buf;
+	out.LockCount = sc.LockCount;
+	out.NonZero = sc.NonZero;
+	return sc.Buf != nullptr;
 }
 
 DrawCapture::Stats DrawCapture::GetStats()
