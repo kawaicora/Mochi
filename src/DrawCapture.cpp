@@ -36,7 +36,7 @@ constexpr size_t   kScratchBudget = 256u * 1024u * 1024u;	// 所有 scratch 总�
 
 // 诊断模式：不 patch vtable、不隐藏窗口，让 SurfaceDebug 读到原版真实 surface。
 // 用于指认各块面承载哪个界面，确认后再切回接管模式。
-constexpr bool     kDiagnosticOnly = false;
+constexpr bool     kDiagnosticOnly = true;	// 基线：不接管渲染，窗口正常显示
 
 // ---- 状态 ------------------------------------------------------------------
 struct SurfScratch

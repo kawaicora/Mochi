@@ -1,4 +1,4 @@
-#include "Mochi.h"
+﻿#include "Mochi.h"
 #include <Windows.h>
 #include <Helpers/Macro.h>
 #include <vector>
@@ -151,7 +151,8 @@ void Mochi::RegisterEvent() {
 	GeneralHook::ScenarioStartEvent.Subscribe([]() {
 		Debug::Log("Scenario Started\n");
 		DrawCapture::Install();
-		PreviewWindow::Create();
+		// 预览窗已关闭：诊断完成，避免每帧 7 面锁+转换的开销
+		// PreviewWindow::Create();
 		// 逐面开窗已关闭（需指认时临时打开）
 		// SurfaceDebug::CreateSurfaceWindow(DSurface::Primary, L"1-Primary", true);
 		// SurfaceDebug::CreateSurfaceWindow(DSurface::Hidden, L"2-Hidden", true);
@@ -174,7 +175,7 @@ void Mochi::RegisterEvent() {
 		MochiGame::DrawHouseInfo();
 		MochiGame::DrawAllGameObjectInfo(false, true);
 		MochiGame::DrawAllFactoryProduction();
-		PreviewWindow::RenderFrame();
+		// PreviewWindow::RenderFrame();
 	});
 
 	GeneralHook::LogicClassUpdateEvent.Subscribe([]() {
