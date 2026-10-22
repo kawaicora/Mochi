@@ -347,6 +347,22 @@ static void BlitScratch(SurfScratch* d, SurfScratch* s, int dx, int dy, int sx, 
 
 	const size_t bpp = (d->Bpp > 0) ? (size_t)d->Bpp : 2;
 	const size_t rowBytes = (size_t)w * bpp;
+
+	// 快路径：源/目标都从第 0 列开始、整行宽度一致、步长相同，
+	// 说明是一整块连续内存 —— 塌成一次 memcpy。
+	// TacticalClass::Render 每帧对整屏做 CopyFromPart 都命中这条，
+	// 省掉 h 次 memcpy 调用开销（768 次 -> 1 次）。
+	if (sx == 0 && dx == 0 && s->Pitch == d->Pitch && rowBytes == (size_t)s->Pitch)
+	{
+		const uint8_t* sp = s->Buf + (size_t)sy * (size_t)s->Pitch;
+		uint8_t* dp = d->Buf + (size_t)dy * (size_t)d->Pitch;
+		memcpy(dp, sp, (size_t)h * (size_t)d->Pitch);
+		++g_blits;
+		g_cyCopy += TscNow() - cyCopy0;
+		++g_nCopy;
+		return;
+	}
+
 	for (int y = 0; y < h; ++y)
 	{
 		const uint8_t* sp = s->Buf + (size_t)(sy + y) * (size_t)s->Pitch + (size_t)sx * bpp;
