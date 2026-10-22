@@ -22,6 +22,9 @@ public:
 	static bool Install();
 	static bool IsInstalled();
 
+	// 由 RadarHook 里已有的 0x4AED70 钩子调用（不可重复挂钩同一地址）
+	static void CountCall();
+
 	// 上一次统计窗口内的 CC_Draw_Shape 调用次数（每帧重算）
 	static uint64_t  TakeCallCount();
 	static uint64_t  GetTotalCalls();

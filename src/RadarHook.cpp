@@ -1,4 +1,5 @@
 #include "RadarHook.h"
+#include <DrawDefer.h>
 #include <GeneralHook.h>
 #include <Debug.h>
 #include <YRPP.h>
@@ -21,6 +22,9 @@ DEFINE_HOOK(0x653100, Radar_Draw, 0x5)
 
 DEFINE_HOOK(0x4AED70, CC_Draw_ShapeHook,0x6) 
 {
+	// 计数后正常直通。return 0 = Syringe 重放保存的原字节后继续，
+	// 切勿在此手动补 sub esp,94h —— 会重复执行导致栈帧错位 0x94 字节。
+	DrawDefer::CountCall();
 	return 0;
 
 }
