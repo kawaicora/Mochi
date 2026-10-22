@@ -23,6 +23,7 @@
 #include <Debug.h>
 
 #include <stdint.h>
+#include <intrin.h>
 #include <string.h>
 
 namespace {
@@ -71,6 +72,27 @@ uint64_t	g_lastStatTick = 0;
 
 // Lock 永不返回 NULL 的兜底（8MB，足够任何单面）
 static uint8_t g_nullSink[8 * 1024 * 1024];
+
+// ---- 帧计时（C 阶段：先量化）----
+uint64_t	g_tscFreq = 0;			// TSC ticks / 秒
+uint64_t	g_tsFrameStart = 0;
+uint64_t	g_tsLogicEnd = 0;
+
+uint64_t	g_cyLogic = 0, g_cyDraw = 0, g_cyFrame = 0;
+uint64_t	g_nFrames = 0;
+uint64_t	g_cyFrameMax = 0, g_cyLogicMax = 0, g_cyDrawMax = 0;
+
+uint64_t	g_cyLock = 0;
+uint64_t	g_nLock = 0;
+uint64_t	g_cyCopy = 0;
+uint64_t	g_nCopy = 0;
+
+__forceinline uint64_t TscNow() noexcept { return __rdtsc(); }
+
+__forceinline uint64_t CyToUs(uint64_t cy) noexcept
+{
+return g_tscFreq ? (cy * 1000000ull / g_tscFreq) : 0;
+}
 
 using Fn = void(*)();
 
@@ -253,12 +275,17 @@ static SurfScratch* EnsureScratch(Surface* s, bool preferShared, const char* nam
 static void* __fastcall Hook_Lock(void* self, void* /*edx*/, int X, int Y)
 {
 	++g_locks;
+	const uint64_t cyLock0 = TscNow();
 
 	SurfScratch* sc = FindScratch((Surface*)self);
 	if (!sc)
 		sc = EnsureScratch((Surface*)self, false, nullptr);	// 运行时新建的面
 	if (!sc || !sc->Buf)
+	{
+		g_cyLock += TscNow() - cyLock0;
+		++g_nLock;
 		return g_nullSink;
+	}
 
 	sc->LastTick = GetTickCount();
 	++sc->LockCount;
@@ -303,6 +330,8 @@ static void BlitScratch(SurfScratch* d, SurfScratch* s, int dx, int dy, int sx, 
 {
 	if (!d || !s || !d->Buf || !s->Buf)
 		return;
+
+	const uint64_t cyCopy0 = TscNow();
 	if (w <= 0 || h <= 0) { w = d->W; h = d->H; }
 
 	if (sx < 0) { dx -= sx; w += sx; sx = 0; }
@@ -325,6 +354,8 @@ static void BlitScratch(SurfScratch* d, SurfScratch* s, int dx, int dy, int sx, 
 		memcpy(dp, sp, rowBytes);
 	}
 	++g_blits;
+	g_cyCopy += TscNow() - cyCopy0;
+	++g_nCopy;
 }
 
 static SurfScratch* ScratchFor(Surface* s)
@@ -512,6 +543,22 @@ bool DrawCapture::Install()
 		return false;
 	}
 
+	// TSC 校准（计时用）
+	if (!g_tscFreq)
+	{
+		LARGE_INTEGER f{}, q0{}, q1{};
+		QueryPerformanceFrequency(&f);
+		const uint64_t t0 = TscNow();
+		QueryPerformanceCounter(&q0);
+		Sleep(60);
+		QueryPerformanceCounter(&q1);
+		const uint64_t t1 = TscNow();
+		const uint64_t dq = (uint64_t)(q1.QuadPart - q0.QuadPart);
+		if (dq > 0 && f.QuadPart > 0)
+			g_tscFreq = (t1 - t0) * (uint64_t)f.QuadPart / dq;
+		Debug::Log("[Timing] tscFreq=%llu Hz\n", (unsigned long long)g_tscFreq);
+	}
+
 	// 共享内存（Primary 的像素直接放进去，外部 render 可零拷贝读取）
 	int pitch = 0, bpp = 0, w = 0, h = 0;
 	QueryFormat(primary, pitch, bpp, w, h);
@@ -598,8 +645,32 @@ void DrawCapture::Publish()
 		InterlockedExchange((volatile LONG*)&g_info->Epoch, (LONG)(g_frames + 1));
 	}
 
-	const uint64_t now = GetTickCount64();
-	if (g_installed && now - g_lastStatTick >= 3000)
+		const uint64_t now = GetTickCount64();
+
+	// ---- 每秒打印一次耗时拆分 ----
+	static uint64_t s_lastTiming = 0;
+	if (now - s_lastTiming >= 1000)
+	{
+		s_lastTiming = now;
+		const uint64_t n = g_nFrames ? g_nFrames : 1;
+		Debug::Log("[Timing] frame avg=%llu.%03llums max=%llu.%03llums | logic avg=%llu.%03llums max=%llu.%03llums | draw avg=%llu.%03llums max=%llu.%03llums | hookLock=%llu.%03llums/%llu copy=%llu.%03llums/%llu\n",
+			(unsigned long long)(CyToUs(g_cyFrame / n) / 1000), (unsigned long long)(CyToUs(g_cyFrame / n) % 1000),
+			(unsigned long long)(CyToUs(g_cyFrameMax) / 1000), (unsigned long long)(CyToUs(g_cyFrameMax) % 1000),
+			(unsigned long long)(CyToUs(g_cyLogic / n) / 1000), (unsigned long long)(CyToUs(g_cyLogic / n) % 1000),
+			(unsigned long long)(CyToUs(g_cyLogicMax) / 1000), (unsigned long long)(CyToUs(g_cyLogicMax) % 1000),
+			(unsigned long long)(CyToUs(g_cyDraw / n) / 1000), (unsigned long long)(CyToUs(g_cyDraw / n) % 1000),
+			(unsigned long long)(CyToUs(g_cyDrawMax) / 1000), (unsigned long long)(CyToUs(g_cyDrawMax) % 1000),
+			(unsigned long long)(CyToUs(g_cyLock) / 1000), (unsigned long long)(CyToUs(g_cyLock) % 1000), (unsigned long long)g_nLock,
+			(unsigned long long)(CyToUs(g_cyCopy) / 1000), (unsigned long long)(CyToUs(g_cyCopy) % 1000), (unsigned long long)g_nCopy);
+
+		g_cyFrame = g_cyLogic = g_cyDraw = 0;
+		g_cyFrameMax = g_cyLogicMax = g_cyDrawMax = 0;
+		g_cyLock = g_cyCopy = 0;
+		g_nLock = g_nCopy = g_nFrames = 0;
+	}
+
+	const uint64_t now2 = GetTickCount64();
+	if (g_installed && now2 - g_lastStatTick >= 3000)
 	{
 		g_lastStatTick = now;
 		for (int i = 0; i < g_scrN; ++i)
@@ -737,6 +808,35 @@ bool DrawCapture::GetSurfaceInfo(int index, SurfaceInfo& out)
 	out.LockCount = sc.LockCount;
 	out.NonZero = sc.NonZero;
 	return sc.Buf != nullptr;
+}
+
+
+//=============================================================================
+// 帧计时实现
+//=============================================================================
+void DrawCapture::TimingMarkFrameStart()
+{
+	g_tsFrameStart = TscNow();
+}
+
+void DrawCapture::TimingMarkLogicEnd()
+{
+	g_tsLogicEnd = TscNow();
+	const uint64_t d = g_tsLogicEnd - g_tsFrameStart;
+	g_cyLogic += d;
+	if (d > g_cyLogicMax) g_cyLogicMax = d;
+}
+
+void DrawCapture::TimingMarkDrawEnd()
+{
+	const uint64_t now = TscNow();
+	const uint64_t dDraw = now - g_tsLogicEnd;
+	const uint64_t dFrame = now - g_tsFrameStart;
+	g_cyDraw += dDraw;
+	g_cyFrame += dFrame;
+	++g_nFrames;
+	if (dDraw > g_cyDrawMax) g_cyDrawMax = dDraw;
+	if (dFrame > g_cyFrameMax) g_cyFrameMax = dFrame;
 }
 
 DrawCapture::Stats DrawCapture::GetStats()

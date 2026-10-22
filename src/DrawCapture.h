@@ -91,6 +91,12 @@ public:
 	static int  GetSurfaceCount();
 	static bool GetSurfaceInfo(int index, SurfaceInfo& out);
 
+	// —— 帧计时（先量化再优化）——
+	// 一帧：LogicClassUpdate(帧开始) -> LogicClassUpdateLate(逻辑结束) -> DrawOnTop(绘制结束)
+	static void TimingMarkFrameStart();
+	static void TimingMarkLogicEnd();
+	static void TimingMarkDrawEnd();
+
 	static void HideGameWindows();
 
 	struct Stats

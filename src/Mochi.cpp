@@ -152,14 +152,14 @@ void Mochi::RegisterEvent() {
 		Debug::Log("Scenario Started\n");
 		DrawCapture::Install();
 		PreviewWindow::Create();
-		// 逐面开窗：每块 Surface 一个窗口，实时刷新，用来指认哪个面是哪个界面
-		SurfaceDebug::CreateSurfaceWindow(DSurface::Primary, L"1-Primary", true);
-		SurfaceDebug::CreateSurfaceWindow(DSurface::Hidden, L"2-Hidden", true);
-		SurfaceDebug::CreateSurfaceWindow(DSurface::Composite, L"3-Composite", true);
-		SurfaceDebug::CreateSurfaceWindow(DSurface::Sidebar, L"4-Sidebar", true);
-		SurfaceDebug::CreateSurfaceWindow(DSurface::Alternate, L"5-Alternate", true);
-		SurfaceDebug::CreateSurfaceWindow(DSurface::Temp, L"6-Temp", true);
-		SurfaceDebug::CreateSurfaceWindow(DSurface::Tile, L"7-Tile", true);
+		// 逐面开窗已关闭（需指认时临时打开）
+		// SurfaceDebug::CreateSurfaceWindow(DSurface::Primary, L"1-Primary", true);
+		// SurfaceDebug::CreateSurfaceWindow(DSurface::Hidden, L"2-Hidden", true);
+		// SurfaceDebug::CreateSurfaceWindow(DSurface::Composite, L"3-Composite", true);
+		// SurfaceDebug::CreateSurfaceWindow(DSurface::Sidebar, L"4-Sidebar", true);
+		// SurfaceDebug::CreateSurfaceWindow(DSurface::Alternate, L"5-Alternate", true);
+		// SurfaceDebug::CreateSurfaceWindow(DSurface::Temp, L"6-Temp", true);
+		// SurfaceDebug::CreateSurfaceWindow(DSurface::Tile, L"7-Tile", true);
 		//MochiGame::PlayMovie("V_001");
 		
 	});
@@ -169,18 +169,21 @@ void Mochi::RegisterEvent() {
 
 
 	GeneralHook::GScreenClassDrawOnTopEvent.Subscribe([]() {
+		DrawCapture::TimingMarkDrawEnd();
 
 		MochiGame::DrawHouseInfo();
 		MochiGame::DrawAllGameObjectInfo(false, true);
 		MochiGame::DrawAllFactoryProduction();
-	});
-
-	GeneralHook::LogicClassUpdateEvent.Subscribe([]() {
-		DrawCapture::Publish();
 		PreviewWindow::RenderFrame();
 	});
 
+	GeneralHook::LogicClassUpdateEvent.Subscribe([]() {
+		DrawCapture::TimingMarkFrameStart();
+		DrawCapture::Publish();
+	});
+
 	GeneralHook::LogicClassUpdateLateEvent.Subscribe([]() {
+		DrawCapture::TimingMarkLogicEnd();
 		if (MochiHouse::IsAutoChargePlayerAllSuperweapon) {
 			MochiGame::ChargeAllSuperWeapon(HouseClass::CurrentPlayer);
 		}

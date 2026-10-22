@@ -39,9 +39,6 @@ int			g_dibW = 0, g_dibH = 0;		// DIB 尺寸 = 游戏 surface 尺寸
 bool		g_classReady = false;
 uint64_t	g_lastTitleTick = 0;
 uint32_t	g_shownFrames = 0;
-int			g_selIdx = -1;		// 当前显示的 surface 下标
-const char*	g_selName = "?";
-
 // 几何同步的去重状态
 struct GeoKey
 {
@@ -142,61 +139,177 @@ static bool RecreateDib(int w, int h)
 	return true;
 }
 
-static void RefreshFromGame()
+//=============================================================================
+// 不干预渲染：直接读真实 DDraw surface，按"谁在变"自动选中
+//   游戏主画面在 Primary；设置/菜单/加载由引擎直接显示 Alternate。
+//   哪块 surface 的内容帧间发生变化，就说明它正在被绘制 -> 显示它。
+//   这样不需要 hook 任何 Lock/Blt，也不存在"被我们改坏"的问题。
+//=============================================================================
+namespace {
+struct Watch
 {
-	const int count = DrawCapture::GetSurfaceCount();
-	if (count <= 0)
+	Surface*	S;
+	const char*	Name;
+	uint32_t	LastSum;
+	uint64_t	LastChange;
+	int			W, H, Pitch, Bpp;
+	bool		Valid;
+};
+
+constexpr int kWatchCount = 7;
+Watch g_watch[kWatchCount];
+bool  g_watchInit = false;
+int   g_selIdx = -1;		// >=0 表示用户用 F1/F2 手动锁定某块
+const char* g_selName = "?";
+
+static void InitWatch()
+{
+	if (g_watchInit)
 		return;
-	if (g_selIdx < 0 || g_selIdx >= count)
-	{
-		g_selIdx = 0;
-		for (int i = 0; i < count; ++i)
-		{
-			DrawCapture::SurfaceInfo probe{};
-			if (DrawCapture::GetSurfaceInfo(i, probe) && probe.Name && strcmp(probe.Name, "Hidden") == 0)
-			{
-				g_selIdx = i;
-				break;
-			}
-		}
-	}
+	g_watchInit = true;
 
-	DrawCapture::SurfaceInfo si{};
-	if (!DrawCapture::GetSurfaceInfo(g_selIdx, si) || !si.Pixels)
-		return;
-	g_selName = si.Name ? si.Name : "?";
-
-	void* bits = si.Pixels;
-	int w = si.Width, h = si.Height, pitch = si.Pitch, bpp = si.Bpp;
-
-	if (w != g_dibW || h != g_dibH)
-	{
-		if (!RecreateDib(w, h))
-			return;
-	}
-
-	ConvertToDib(bits, w, h, pitch, bpp);
-
-	// 走退路时（临时锁了真实 surface）用完解锁；重定向模式下是空操作
+	Surface* list[kWatchCount] = {};
 	__try
 	{
-		if (DSurface::Primary)
-			DSurface::Primary->Unlock();
+		list[0] = DSurface::Primary;
+		list[1] = DSurface::Alternate;
+		list[2] = DSurface::Hidden;
+		list[3] = DSurface::Composite;
+		list[4] = DSurface::Sidebar;
+		list[5] = DSurface::Temp;
+		list[6] = DSurface::Tile;
 	}
 	__except (EXCEPTION_EXECUTE_HANDLER) {}
 
-	++g_shownFrames;
+	static const char* names[kWatchCount] = {
+		"Primary", "Alternate", "Hidden", "Composite", "Sidebar", "Temp", "Tile"
+	};
+
+	for (int i = 0; i < kWatchCount; ++i)
+	{
+		g_watch[i].S = list[i];
+		g_watch[i].Name = names[i];
+		g_watch[i].Valid = false;
+		g_watch[i].LastSum = 0;
+		g_watch[i].LastChange = 0;
+	}
+}
+
+// 采样校验和：便宜，够判断"这一帧有没有变"
+static uint32_t SurfaceSum(const uint8_t* p, int w, int h, int pitch, int bpp)
+{
+	if (!p || w <= 0 || h <= 0 || pitch <= 0)
+		return 0;
+	uint32_t s = 2166136261u;
+	const size_t total = (size_t)w * (size_t)h;
+	const size_t step = 97;
+	for (size_t i = 0; i < total; i += step)
+	{
+		const size_t y = i / (size_t)w;
+		const size_t x = i % (size_t)w;
+		const uint8_t* q = p + y * (size_t)pitch + x * (size_t)bpp;
+		s = (s ^ q[0]) * 16777619u;
+		if (bpp > 1)
+			s = (s ^ q[1]) * 16777619u;
+	}
+	return s;
+}
+}
+
+static void RefreshFromGame()
+{
+	InitWatch();
 
 	const uint64_t now = GetTickCount64();
+
+	// 逐块探测：锁一次，算校验和，立刻解锁。未接管 Lock 时这是原版 DDraw 锁，安全。
+	for (int i = 0; i < kWatchCount; ++i)
+	{
+		Watch& w = g_watch[i];
+		if (!w.S)
+			continue;
+
+		void* bits = nullptr;
+		__try { bits = w.S->Lock(0, 0); }
+		__except (EXCEPTION_EXECUTE_HANDLER) { bits = nullptr; }
+		if (!bits)
+			continue;
+
+		int ww = w.S->Width, hh = w.S->Height, pp = 0, bb = 2;
+		__try { pp = w.S->GetPitch(); }
+		__except (EXCEPTION_EXECUTE_HANDLER) { pp = 0; }
+		__try { bb = w.S->GetBytesPerPixel(); }
+		__except (EXCEPTION_EXECUTE_HANDLER) { bb = 2; }
+		if (bb != 1 && bb != 2 && bb != 4) bb = 2;
+		if (pp <= 0) pp = ww * bb;
+
+		if (ww > 0 && hh > 0)
+		{
+			w.W = ww; w.H = hh; w.Pitch = pp; w.Bpp = bb;
+			const uint32_t sum = SurfaceSum((const uint8_t*)bits, ww, hh, pp, bb);
+			if (sum != w.LastSum)
+			{
+				w.LastSum = sum;
+				w.LastChange = now;
+				w.Valid = true;
+			}
+		}
+
+		__try { w.S->Unlock(); }
+		__except (EXCEPTION_EXECUTE_HANDLER) {}
+	}
+
+	// 选中：手动优先；否则取最近发生变化的那块（并列优先 Primary）
+	int pick = -1;
+	if (g_selIdx >= 0 && g_selIdx < kWatchCount && g_watch[g_selIdx].Valid)
+		pick = g_selIdx;
+	else
+	{
+		uint64_t bestT = 0;
+		for (int i = 0; i < kWatchCount; ++i)
+		{
+			const Watch& w = g_watch[i];
+			if (!w.Valid)
+				continue;
+			if (pick < 0 || w.LastChange > bestT)
+			{
+				pick = i;
+				bestT = w.LastChange;
+			}
+		}
+	}
+	if (pick < 0)
+		return;
+
+	Watch& sel = g_watch[pick];
+	g_selName = sel.Name;
+
+	void* bits = nullptr;
+	__try { bits = sel.S->Lock(0, 0); }
+	__except (EXCEPTION_EXECUTE_HANDLER) { bits = nullptr; }
+	if (!bits)
+		return;
+
+	if (sel.W != g_dibW || sel.H != g_dibH)
+	{
+		if (!RecreateDib(sel.W, sel.H))
+		{
+			__try { sel.S->Unlock(); } __except (EXCEPTION_EXECUTE_HANDLER) {}
+			return;
+		}
+	}
+
+	ConvertToDib(bits, sel.W, sel.H, sel.Pitch, sel.Bpp);
+
+	__try { sel.S->Unlock(); } __except (EXCEPTION_EXECUTE_HANDLER) {}
+
+	++g_shownFrames;
 	if (now - g_lastTitleTick >= 1000)
 	{
 		g_lastTitleTick = now;
-		const DrawCapture::Stats st = DrawCapture::GetStats();
 		wchar_t buf[256];
-		swprintf_s(buf, L"Mochi Preview surf=%S %dx%d bpp=%d %s frames=%u locks=%llu",
-			g_selName, w, h, bpp,
-			DrawCapture::IsInstalled() ? L"[capture]" : L"[passthrough]",
-			g_shownFrames, (unsigned long long)st.Locks);
+		swprintf_s(buf, L"Mochi Preview surf=%S %dx%d bpp=%d fps=%u",
+			g_selName, sel.W, sel.H, sel.Bpp, g_shownFrames);
 		SetWindowTextW(g_hwnd, buf);
 		g_shownFrames = 0;
 	}
