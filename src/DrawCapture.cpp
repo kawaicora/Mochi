@@ -33,6 +33,10 @@ constexpr uint32_t kPixelOffset = 4096;
 constexpr int      kMaxSurfSlot = 32;
 constexpr size_t   kScratchBudget = 256u * 1024u * 1024u;	// 所有 scratch 总量上限
 
+// 诊断模式：不 patch vtable、不隐藏窗口，让 SurfaceDebug 读到原版真实 surface。
+// 用于指认各块面承载哪个界面，确认后再切回接管模式。
+constexpr bool     kDiagnosticOnly = true;
+
 // ---- 状态 ------------------------------------------------------------------
 struct SurfScratch
 {
@@ -537,6 +541,14 @@ bool DrawCapture::Install()
 	}
 
 	// ---- 关键：原地改写共享 vtable，一次性覆盖所有现存与将来的实例 ----
+	if (kDiagnosticOnly)
+	{
+		g_installed = false;
+		Debug::Log("[DrawCapture] DIAGNOSTIC MODE: vtable NOT patched, window NOT hidden\n");
+		Debug::Log("[DrawCapture] SurfaceDebug windows show the REAL surfaces\n");
+		return false;
+	}
+
 	const bool patched = PatchVtableInPlace(vt);
 	if (!patched)
 		return false;
