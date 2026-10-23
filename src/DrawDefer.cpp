@@ -51,3 +51,15 @@ uint64_t DrawDefer::GetTotalCalls()
 {
 	return (uint64_t)g_totalCalls;
 }
+// 单位精灵真正干活的函数（FootClass::Draw_A_SHP @ 0x41C090 转发到这里）。
+// 已确认：0x705E00 没有被 Phobos/Ares/Mochi 任何 DLL 占用。
+// 实测序言：
+//   8B 44 24 04   mov eax,[esp+4]    4 字节
+//   83 EC 44      sub esp,44h         3 字节   合计 7 字节（两条完整指令）
+// size=7 + return 0，由 Syringe 重放这 7 字节后继续。
+// 纪律：不碰 ESP、不动栈参数布局，只读不写。
+DEFINE_HOOK(0x705E00, TechnoDraw_Entry, 7)
+{
+	DrawDefer::CountCall();
+	return 0;
+}
