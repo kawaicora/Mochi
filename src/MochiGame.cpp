@@ -283,13 +283,9 @@ void MochiGame::PlayMovie(const char* fileName,
 //***********************************************Command Functions************************************************
 
 
-void MochiGame::SetCurrentPlayerAIControl(bool bCurrentPlayIsAIControl) {
-	HouseClass::CurrentPlayer->IsHumanPlayer = !bCurrentPlayIsAIControl; //设置成相反的值
-	ToggleCurrentPlayerAIControl(); //调用切换函数以应用更改
-
-};
-void MochiGame::ToggleCurrentPlayerAIControl() {
-	if (HouseClass::CurrentPlayer->IsHumanPlayer) {
+void MochiGame::SetCurrentPlayerAIControl(bool bCurrentPlayIsAIControl) { //true 
+	HouseClass::CurrentPlayer->IsHumanPlayer = !bCurrentPlayIsAIControl; //设置成相反的值 //false
+	if (!HouseClass::CurrentPlayer->IsHumanPlayer) {  //true 
 		HouseClass::CurrentPlayer->IsHumanPlayer = false;
 		HouseClass::CurrentPlayer->Production = HouseClass::CurrentPlayer->AutocreateAllowed = true;
 		HouseClass::CurrentPlayer->IQLevel = 5;
@@ -307,7 +303,9 @@ void MochiGame::ToggleCurrentPlayerAIControl() {
 		HouseClass::CurrentPlayer->AIDifficulty = AIDifficulty::Normal;
 		MessageListClass::Instance.PrintMessage(L"玩家接管控制!", 300, ColorScheme::Green);
 	}
+
 };
+
 void MochiGame::ActiveAllSuperWeapon(HouseClass* pHouse) {
 	for (int i = 0; i < pHouse->Supers.Count; i++) {
 		EventData* event = EventData::EventClass_CTOR();

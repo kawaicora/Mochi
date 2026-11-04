@@ -11,6 +11,7 @@
 
 class MochiINI
 {
+
 public:
    
 	//***********************RA2 INIClass ***********************
@@ -58,7 +59,11 @@ public:
             char split_suffix = ',');
     static MochiINI INIReader;
     static MochiINI::Section* PlayerBaseConfig;
+    bool SaveINI(const char* filename) const;
 
+    bool WriteINI(
+        const char* filename,
+        bool createDirectories = true) const;
 
 private:
 

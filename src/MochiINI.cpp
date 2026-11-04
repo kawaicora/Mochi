@@ -490,3 +490,121 @@ const MochiINI::Value* MochiINI::Section::Get(const std::string& key) const
 
     return &it->second;
 }
+
+//*********************** INI WRITE ***********************
+
+static std::string EscapeINIValue(const std::string& value)
+{
+    bool quote = value.empty();
+
+    for (char c : value)
+    {
+        if (c == ',' || c == ';' || c == '"' ||
+            c == '\n' || c == '\r' || c == '\t')
+        {
+            quote = true;
+            break;
+        }
+    }
+
+    if (!quote)
+        return value;
+
+    std::string result = "\"";
+
+    for (char c : value)
+    {
+        switch (c)
+        {
+        case '"':
+            result += "\\\"";
+            break;
+        case '\n':
+            result += "\\n";
+            break;
+        case '\r':
+            result += "\\r";
+            break;
+        case '\t':
+            result += "\\t";
+            break;
+        default:
+            result += c;
+            break;
+        }
+    }
+
+    result += "\"";
+    return result;
+}
+
+
+static std::string SerializeINIValue(const MochiINI::Value& value)
+{
+    return value.Raw;
+}
+
+
+bool MochiINI::SaveINI(const char* filename) const
+{
+    return WriteINI(filename, true);
+}
+
+
+
+bool MochiINI::WriteINI(
+    const char* filename,
+    bool createDirectories) const
+{
+    if (!filename || !*filename)
+        return false;
+
+    try
+    {
+        std::filesystem::path path(filename);
+
+        if (createDirectories && path.has_parent_path())
+        {
+            std::filesystem::create_directories(
+                path.parent_path());
+        }
+
+        std::ofstream file(
+            path,
+            std::ios::out |
+            std::ios::trunc |
+            std::ios::binary);
+
+        if (!file.is_open())
+            return false;
+
+        for (const auto& sectionPair : Sections)
+        {
+            file << "["
+                << sectionPair.first
+                << "]\n";
+
+            const Section& section = sectionPair.second;
+
+            for (const auto& keyPair : section.Keys)
+            {
+                file << keyPair.first
+                    << "="
+                    << SerializeINIValue(keyPair.second)
+                    << "\n";
+            }
+
+            file << "\n";
+        }
+
+        file.flush();
+
+        return file.good();
+    }
+    catch (...)
+    {
+        return false;
+    }
+}
+
+//*********************** INI WRITE ***********************

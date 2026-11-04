@@ -1,9 +1,6 @@
 ﻿#include "MochiHouse.h"
 
 std::vector<MochiHouse::TechUnlockStruct> MochiHouse::TechUnlockList = {};
-bool MochiHouse::IsPlayerInstantConstruction = false;
-bool MochiHouse::IsAutoChargePlayerAllSuperweapon = false;
-bool MochiHouse::IsAutoGetCrate = false;
 
 const wchar_t* MochiHouse::GetPlayerNameByHouseIndex(int index)
 {

@@ -26,7 +26,6 @@ public:
 	//***********************************************Command Functions************************************************
 	
 	static void SetCurrentPlayerAIControl(bool bCurrentPlayIsAIControl);
-	static void ToggleCurrentPlayerAIControl();
 	static void ActiveAllSuperWeapon(HouseClass* pHouse);
 	static void RandomGenUnits(HouseClass* pHouse);
 	static void ChargeAllSuperWeapon(HouseClass* pHouse);

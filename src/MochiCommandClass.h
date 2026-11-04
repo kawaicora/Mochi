@@ -3,6 +3,8 @@
 #include <YRPP.h>
 #include <MochiGame.h>
 #include <RadarHook.h>
+
+//需要启动时修复
 class AIControlCommandClass: public CommandClass
 {
 public:
@@ -30,7 +32,33 @@ public:
 	virtual void Execute(WWKey eInput) const override
 	{
 
-		MochiGame::ToggleCurrentPlayerAIControl();
+		MochiINI::PlayerBaseConfig =
+			(MochiINI::Section*)MochiINI::INIReader.GetSection(
+				"PlayerBaseConfig");
+
+		if (!MochiINI::PlayerBaseConfig)
+		{
+			// 配置不存在时，创建 Section
+			MochiINI::PlayerBaseConfig =
+				&MochiINI::INIReader["PlayerBaseConfig"];
+		}
+
+		bool isAIControl =
+			MochiINI::PlayerBaseConfig->GetValueByKey<bool>(
+				"IsAIControl", true);
+		isAIControl = !isAIControl;
+		// 修改配置
+		MochiINI::INIReader["PlayerBaseConfig"]
+			["IsAIControl"].Raw =
+			isAIControl ? "true" : "false";
+
+		// 保存配置
+		MochiINI::INIReader.SaveINI("mochi.ini");
+
+
+
+
+		MochiGame::SetCurrentPlayerAIControl(isAIControl);
 		return;
 	}
 };
@@ -61,8 +89,30 @@ public:
 
 	virtual void Execute(WWKey eInput) const override
 	{
+		MochiINI::PlayerBaseConfig =
+			(MochiINI::Section*)MochiINI::INIReader.GetSection(
+				"PlayerBaseConfig");
 
-		MochiHouse::IsPlayerInstantConstruction = !MochiHouse::IsPlayerInstantConstruction;
+		if (!MochiINI::PlayerBaseConfig)
+		{
+			// 配置不存在时，创建 Section
+			MochiINI::PlayerBaseConfig =
+				&MochiINI::INIReader["PlayerBaseConfig"];
+		}
+
+		bool isInstantConstruction =
+			MochiINI::PlayerBaseConfig->GetValueByKey<bool>(
+				"IsInstantConstruction", true);
+		isInstantConstruction = !isInstantConstruction;
+		// 修改配置
+		MochiINI::INIReader["PlayerBaseConfig"]
+			["IsInstantConstruction"].Raw =
+			isInstantConstruction ? "true" : "false";
+
+		// 保存配置
+		MochiINI::INIReader.SaveINI("mochi.ini");
+
+		
 		return;
 	}
 };
@@ -92,11 +142,33 @@ class AutoChargePlayerAllSuperweaponCommandClass : public CommandClass
 
 	virtual void Execute(WWKey eInput) const override
 	{
+		MochiINI::PlayerBaseConfig =
+			(MochiINI::Section*)MochiINI::INIReader.GetSection(
+				"PlayerBaseConfig");
 
-		MochiHouse::IsAutoChargePlayerAllSuperweapon = !MochiHouse::IsAutoChargePlayerAllSuperweapon;
+		if (!MochiINI::PlayerBaseConfig)
+		{
+			// 配置不存在时，创建 Section
+			MochiINI::PlayerBaseConfig =
+				&MochiINI::INIReader["PlayerBaseConfig"];
+		}
+
+		bool isAutoChargePlayerAllSuperweapon =
+			MochiINI::PlayerBaseConfig->GetValueByKey<bool>(
+				"IsAutoChargePlayerAllSuperweapon", true);
+		isAutoChargePlayerAllSuperweapon = !isAutoChargePlayerAllSuperweapon;
+		// 修改配置
+		MochiINI::INIReader["PlayerBaseConfig"]
+			["IsAutoChargePlayerAllSuperweapon"].Raw =
+			isAutoChargePlayerAllSuperweapon ? "true" : "false";
+
+		// 保存配置
+		MochiINI::INIReader.SaveINI("mochi.ini");
 		return;
 	}
 };
+
+
 class GiveMoneyCommandClass : public CommandClass
 {
 public:
@@ -129,7 +201,7 @@ public:
 	}
 };
 
-
+//需要启动时设置
 class UnlockAllUnitCommandClass
 	: public CommandClass
 {
@@ -157,7 +229,141 @@ public:
 
 	virtual void Execute(WWKey eInput) const override
 	{
-		MochiEvent::SendUnlockAllTechEvent(HouseClass::CurrentPlayer, !MochiHouse::IsTechUnlocked(HouseClass::CurrentPlayer));
+		MochiINI::PlayerBaseConfig =
+			(MochiINI::Section*)MochiINI::INIReader.GetSection(
+				"PlayerBaseConfig");
+
+		if (!MochiINI::PlayerBaseConfig)
+		{
+			// 配置不存在时，创建 Section
+			MochiINI::PlayerBaseConfig =
+				&MochiINI::INIReader["PlayerBaseConfig"];
+		}
+
+		bool isUnlockAllTech =
+			MochiINI::PlayerBaseConfig->GetValueByKey<bool>(
+				"IsUnlockAllTech", true);
+		isUnlockAllTech = !isUnlockAllTech;
+		// 修改配置
+		MochiINI::INIReader["PlayerBaseConfig"]
+			["IsUnlockAllTech"].Raw =
+			isUnlockAllTech ? "true" : "false";
+
+		// 保存配置
+		MochiINI::INIReader.SaveINI("mochi.ini");
+		MochiEvent::SendUnlockAllTechEvent(HouseClass::CurrentPlayer, isUnlockAllTech);
+		return;
+	}
+};
+
+
+class DrawGameObjectInfoCommandClass : public CommandClass
+{
+public:
+	//CommandClass
+	virtual const char* GetName() const override
+	{
+		return "DisplayUnitInfo";
+	}
+
+	virtual const wchar_t* GetUIName() const override
+	{
+		return L"Display Unit Info";
+	}
+
+	virtual const wchar_t* GetUICategory() const override
+	{
+		return L"Mochi开发选项";
+	}
+
+	virtual const wchar_t* GetUIDescription() const override
+	{
+		return L"显示单位信息开关 ";
+	}
+
+	virtual void Execute(WWKey eInput) const override
+	{
+	
+		MochiINI::PlayerBaseConfig =
+			(MochiINI::Section*)MochiINI::INIReader.GetSection(
+				"PlayerBaseConfig");
+
+		if (!MochiINI::PlayerBaseConfig)
+		{
+			// 配置不存在时，创建 Section
+			MochiINI::PlayerBaseConfig =
+				&MochiINI::INIReader["PlayerBaseConfig"];
+		}
+
+		bool isDrawGameObjectInfo =
+			MochiINI::PlayerBaseConfig->GetValueByKey<bool>(
+				"IsDrawGameObjectInfo", true);
+		isDrawGameObjectInfo = !isDrawGameObjectInfo;
+		// 修改配置
+		MochiINI::INIReader["PlayerBaseConfig"]
+			["IsDrawGameObjectInfo"].Raw =
+			isDrawGameObjectInfo ? "true" : "false";
+
+		// 保存配置
+		MochiINI::INIReader.SaveINI("mochi.ini");
+
+		return;
+	}
+};
+
+
+
+
+class DrawHouseInfoCommandClass : public CommandClass
+{
+public:
+	//CommandClass
+	virtual const char* GetName() const override
+	{
+		return "DrawHouseInfo";
+	}
+
+	virtual const wchar_t* GetUIName() const override
+	{
+		return L"Draw House Info";
+	}
+
+	virtual const wchar_t* GetUICategory() const override
+	{
+		return L"Mochi开发选项";
+	}
+
+	virtual const wchar_t* GetUIDescription() const override
+	{
+		return L"绘制阵营信息开关 ";
+	}
+
+	virtual void Execute(WWKey eInput) const override
+	{
+
+		MochiINI::PlayerBaseConfig =
+			(MochiINI::Section*)MochiINI::INIReader.GetSection(
+				"PlayerBaseConfig");
+
+		if (!MochiINI::PlayerBaseConfig)
+		{
+			// 配置不存在时，创建 Section
+			MochiINI::PlayerBaseConfig =
+				&MochiINI::INIReader["PlayerBaseConfig"];
+		}
+
+		bool isDrawHouseInfo =
+			MochiINI::PlayerBaseConfig->GetValueByKey<bool>(
+				"IsDrawHouseInfo", true);
+		isDrawHouseInfo = !isDrawHouseInfo;
+		// 修改配置
+		MochiINI::INIReader["PlayerBaseConfig"]
+			["IsDrawHouseInfo"].Raw =
+			isDrawHouseInfo ? "true" : "false";
+
+		// 保存配置
+		MochiINI::INIReader.SaveINI("mochi.ini");
+
 		return;
 	}
 };
@@ -289,6 +495,8 @@ public:
 		return;
 	}
 };
+
+
 
 
 class MoveCommandClass : public CommandClass

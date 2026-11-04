@@ -4,9 +4,6 @@
 class MochiHouse
 {
 public:
-	static bool IsPlayerInstantConstruction;
-	static bool IsAutoChargePlayerAllSuperweapon;
-	static bool IsAutoGetCrate;
 	struct TechUnlockStruct
 	{
 		HouseClass* pHouse;

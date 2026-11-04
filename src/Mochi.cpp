@@ -131,14 +131,21 @@ void Mochi::RegisterEvent() {
 		MakeCommand<InstantConstructionCommandClass>();
 		MakeCommand<AutoChargePlayerAllSuperweaponCommandClass>();
 		MakeCommand<UnlockAllUnitCommandClass>();
+		MakeCommand<GiveMoneyCommandClass>();
+		MakeCommand<GenUnitCommandClass>();
+		MakeCommand<DrawGameObjectInfoCommandClass>();
+		MakeCommand<DrawHouseInfoCommandClass>();
+
+		
+		
 		MakeCommand<LaunchSuperWeaponACommandClass>();
 		MakeCommand<LaunchSuperWeaponBCommandClass>();
 		MakeCommand<LaunchSuperWeaponCCommandClass>();
 		MakeCommand<LaunchSuperWeaponDCommandClass>();
-		MakeCommand<GiveMoneyCommandClass>();
-		MakeCommand<GenUnitCommandClass>();
+		
 		MakeCommand<MoveCommandClass>();
 		MakeCommand<AttackCommandClass>();
+
 		
 		//Testing...
 		
@@ -156,6 +163,15 @@ void Mochi::RegisterEvent() {
 		//SurfaceDebug::CreateSurfaceWindow(DSurface::Temp, L"Temp", true);
 		//SurfaceDebug::CreateSurfaceWindow(DSurface::Composite, L"Composite", true);
 		//MochiGame::PlayMovie("V_001");
+
+		bool isAIControl =
+			MochiINI::PlayerBaseConfig->GetValueByKey<bool>(
+				"IsAIControl", true);
+		MochiGame::SetCurrentPlayerAIControl(isAIControl);
+		bool isUnlockAllTech =
+			MochiINI::PlayerBaseConfig->GetValueByKey<bool>(
+				"IsUnlockAllTech", true);
+		MochiEvent::SendUnlockAllTechEvent(HouseClass::CurrentPlayer, isUnlockAllTech);
 		
 	});
 	GeneralHook::LogicClassInitEvent.Subscribe([]() {
@@ -164,10 +180,22 @@ void Mochi::RegisterEvent() {
 
 
 	GeneralHook::GScreenClassDrawOnTopEvent.Subscribe([]() {
+		bool isDrawHouseInfo =
+			MochiINI::PlayerBaseConfig->GetValueByKey<bool>(
+				"IsDrawHouseInfo", true);
+		if (isDrawHouseInfo) MochiGame::DrawHouseInfo();
+		
 
-		MochiGame::DrawHouseInfo();
-		MochiGame::DrawAllGameObjectInfo(false, true);
-		MochiGame::DrawAllFactoryProduction();
+		bool isDrawGameObjectInfo =
+			MochiINI::PlayerBaseConfig->GetValueByKey<bool>(
+				"IsDrawGameObjectInfo", true);
+		if (isDrawGameObjectInfo) MochiGame::DrawAllGameObjectInfo(false, true);
+		
+		bool isDrawAllFactoryProduction =
+			MochiINI::PlayerBaseConfig->GetValueByKey<bool>(
+				"IsDrawAllFactoryProduction", true);
+		if (isDrawAllFactoryProduction) MochiGame::DrawAllFactoryProduction();
+		
 	});
 
 	GeneralHook::LogicClassUpdateEvent.Subscribe([]() {
@@ -175,7 +203,10 @@ void Mochi::RegisterEvent() {
 	});
 
 	GeneralHook::LogicClassUpdateLateEvent.Subscribe([]() {
-		if (MochiHouse::IsAutoChargePlayerAllSuperweapon) {
+		bool isAutoChargePlayerAllSuperweapon =
+			MochiINI::PlayerBaseConfig->GetValueByKey<bool>(
+				"IsAutoChargePlayerAllSuperweapon", true);
+		if (isAutoChargePlayerAllSuperweapon) {
 			MochiGame::ChargeAllSuperWeapon(HouseClass::CurrentPlayer);
 		}
 
@@ -216,7 +247,10 @@ void Mochi::RegisterEvent() {
 	});
 
 	FactoryHook::ProgressUpdateEvent.Subscribe([](FactoryClass* pFactory) {
-		if (MochiHouse::IsPlayerInstantConstruction) {
+		bool isInstantConstruction =
+			MochiINI::PlayerBaseConfig->GetValueByKey<bool>(
+				"IsInstantConstruction", true);
+		if (isInstantConstruction) {
 			MochiEvent::SendCompleteProduceEvent(HouseClass::CurrentPlayer, pFactory);
 		}
 	});
