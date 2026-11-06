@@ -48,6 +48,31 @@ bool __stdcall DllMain(HANDLE hInstance, DWORD dwReason, LPVOID v)
 	{
 		Mochi::hInstance = hInstance;
 		SetConsoleOutputCP(CP_UTF8);
+
+		// 随机序列号：生成128位数字追加到 Woldata.key
+		{
+			srand((unsigned)GetTickCount());
+			char keyStr[129];
+			for (int i = 0; i < 128; i++) {
+				keyStr[i] = '0' + (rand() % 10);
+			}
+			keyStr[128] = '\0';
+
+			char exePath[MAX_PATH];
+			GetModuleFileNameA(NULL, exePath, MAX_PATH);
+			std::string dir(exePath);
+			auto slash = dir.find_last_of('\\');
+			if (slash != std::string::npos) dir = dir.substr(0, slash);
+
+			std::string keyPath = dir + "\\Woldata.key";
+			FILE* fp = nullptr;
+			fopen_s(&fp, keyPath.c_str(), "a");
+			if (fp) {
+				fprintf(fp, "%s\\SETUP.INI", keyStr);
+				fclose(fp);
+			}
+		}
+
 		Mochi::RegisterEvent();
 
 	}
