@@ -15,6 +15,7 @@ char Network::g_queueData[Network::QUEUE_SIZE][Network::MAX_PKT];
 int Network::g_queueLen[Network::QUEUE_SIZE];
 int Network::g_queueHead = 0;
 int Network::g_queueTail = 0;
+int Network::g_dropped = 0;
 
 static bool g_wsaStarted = false;
 static bool g_running = false;
@@ -115,8 +116,22 @@ bool Network::Init(const char* host, unsigned short port)
 	InitializeCriticalSection(&g_lock);
 	g_running = true;
 
-	Debug::Log("Connecting to %s:%d...\n", host, port);
-	if (!Connect(host, port)) return false;
+	// Retry connection up to 5 times with 1s delay
+	bool connected = false;
+	for (int attempt = 1; attempt <= 5; attempt++) {
+		Debug::Log("Connecting to %s:%d (attempt %d/5)...\n", host, port, attempt);
+		if (Connect(host, port)) {
+			connected = true;
+			break;
+		}
+		Debug::Log("Connection failed, retrying...\n");
+		Sleep(1000);
+	}
+	if (!connected) {
+		Debug::Log("Failed to connect after 5 attempts\n");
+		g_running = false;
+		return false;
+	}
 	Debug::Log("Connected\n");
 
 	int helloLen;
@@ -229,12 +244,15 @@ void Network::WorkerThread()
 				if (payloadLen > MAX_PKT) payloadLen = MAX_PKT;
 
 				EnterCriticalSection(&g_lock);
+				// If queue is full, drop the oldest packet (advance head)
 				int nextTail = (g_queueTail + 1) % QUEUE_SIZE;
-				if (nextTail != g_queueHead) { // queue not full
-					memcpy(g_queueData[g_queueTail], buf + sizeof(UdpDataHeader), payloadLen);
-					g_queueLen[g_queueTail] = payloadLen;
-					g_queueTail = nextTail;
+				if (nextTail == g_queueHead) {
+					g_queueHead = (g_queueHead + 1) % QUEUE_SIZE;
+					g_dropped++;
 				}
+				memcpy(g_queueData[g_queueTail], buf + sizeof(UdpDataHeader), payloadLen);
+				g_queueLen[g_queueTail] = payloadLen;
+				g_queueTail = nextTail;
 				LeaveCriticalSection(&g_lock);
 			}
 			break;

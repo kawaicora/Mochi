@@ -30,12 +30,14 @@ private:
 	static bool g_ready;
 
 	// Packet queue: each received game UDP packet stored separately
-	static const int QUEUE_SIZE = 32;
+	// Large queue to handle burst during game start (map data sync)
+	static const int QUEUE_SIZE = 256;
 	static const int MAX_PKT = 1500;
 	static char g_queueData[QUEUE_SIZE][MAX_PKT];
 	static int g_queueLen[QUEUE_SIZE];
 	static int g_queueHead;  // read index
 	static int g_queueTail;  // write index
+	static int g_dropped;    // dropped packets counter
 };
 
 void HexDump(const void* data, int len, const char* title);
