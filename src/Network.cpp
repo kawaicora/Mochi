@@ -42,25 +42,26 @@ void HexDump(const void* data, int len, const char* title)
 {
 	if (title && title[0]) Debug::Log("%s\n", title);
 	const uint8_t* p = (const uint8_t*)data;
-	static char buf[4096];
-	int pos = 0;
 	for (int i = 0; i < len; i += 16) {
+		char line[80];
+		int pos = 0;
+		pos += sprintf_s(line + pos, sizeof(line) - pos, "  ");
 		int rowLen = (len - i < 16) ? (len - i) : 16;
-		if (pos >= (int)sizeof(buf) - 80) break;
 		for (int j = 0; j < rowLen; j++) {
-			pos += sprintf_s(buf + pos, sizeof(buf) - pos, "%02X ", p[i + j]);
+			pos += sprintf_s(line + pos, sizeof(line) - pos, "%02X ", p[i + j]);
 		}
 		for (int j = rowLen; j < 16; j++) {
-			pos += sprintf_s(buf + pos, sizeof(buf) - pos, "   ");
+			pos += sprintf_s(line + pos, sizeof(line) - pos, "   ");
 		}
-		pos += sprintf_s(buf + pos, sizeof(buf) - pos, " |");
+		Debug::Log("%s ", line);
+		char ascii[17];
 		for (int j = 0; j < rowLen; j++) {
 			uint8_t c = p[i + j];
-			buf[pos++] = (c >= 32 && c < 127) ? c : '.';
+			ascii[j] = (c >= 32 && c < 127) ? c : '.';
 		}
-		pos += sprintf_s(buf + pos, sizeof(buf) - pos, "|\n");
+		ascii[rowLen] = 0;
+		Debug::Log("|%s|\n", ascii);
 	}
-	Debug::Log("%s", buf);
 }
 
 static bool SendAll(SOCKET s, const char* data, int len) {
