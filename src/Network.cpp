@@ -201,8 +201,31 @@ void Network::WorkerThread()
 {
 	char buf[8192];
 	PacketHeader hdr;
+	DWORD lastHeartbeat = GetTickCount();
 
 	while (g_running && g_sock != INVALID_SOCKET) {
+		// Check if we need to send heartbeat (every 3 seconds)
+		DWORD now = GetTickCount();
+		if (now - lastHeartbeat >= 3000) {
+			int hbLen;
+			uint8_t* hbPkt = BuildHeartbeat(hbLen);
+			SendAll(g_sock, (char*)hbPkt, hbLen);
+			delete[] hbPkt;
+			lastHeartbeat = now;
+		}
+
+		// Set socket to non-blocking with timeout for heartbeat loop
+		fd_set readSet;
+		FD_ZERO(&readSet);
+		FD_SET(g_sock, &readSet);
+		TIMEVAL tv;
+		tv.tv_sec = 1;
+		tv.tv_usec = 0;
+
+		int sel = select(0, &readSet, NULL, NULL, &tv);
+		if (sel == SOCKET_ERROR) goto disconnected;
+		if (sel == 0) continue; // timeout, loop back to send heartbeat
+
 		int total = 0;
 		while (total < HEADER_SIZE && g_running) {
 			int n = recv(g_sock, (char*)&hdr + total, HEADER_SIZE - total, 0);
