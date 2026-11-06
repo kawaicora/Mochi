@@ -104,6 +104,13 @@ bool Network::Connect(const char* host, unsigned short port)
 		Debug::Log("connect to %s:%d failed: %d\n", host, port, WSAGetLastError());
 		return false;
 	}
+
+	// Disable Nagle: game sends small join/ack packets then a large options
+	// packet immediately after. With Nagle on, the large packet waits for the
+	// small packet's ACK, causing the options to arrive 40-200ms late.
+	int one = 1;
+	setsockopt(g_sock, IPPROTO_TCP, TCP_NODELAY, (const char*)&one, sizeof(one));
+
 	return true;
 }
 
@@ -296,25 +303,22 @@ void Network::WorkerThread()
 				break;
 			}
 			case UdpData: {
-				if (bodyLen >= (int)sizeof(UdpDataHeader)) {
-					UdpDataHeader* uh = (UdpDataHeader*)buf;
-					int payloadLen = uh->payloadLen;
-					if (payloadLen > bodyLen - (int)sizeof(UdpDataHeader))
-						payloadLen = bodyLen - (int)sizeof(UdpDataHeader);
-					if (payloadLen > MAX_PKT) payloadLen = MAX_PKT;
+				int payloadLen = hdr.payloadLen;
+				if (payloadLen > bodyLen)
+					payloadLen = bodyLen;
+				if (payloadLen > MAX_PKT) payloadLen = MAX_PKT;
 
-					EnterCriticalSection(&g_lock);
-					// If queue is full, drop the oldest packet (advance head)
-					int nextTail = (g_queueTail + 1) % QUEUE_SIZE;
-					if (nextTail == g_queueHead) {
-						g_queueHead = (g_queueHead + 1) % QUEUE_SIZE;
-						g_dropped++;
-					}
-					memcpy(g_queueData[g_queueTail], buf + sizeof(UdpDataHeader), payloadLen);
-					g_queueLen[g_queueTail] = payloadLen;
-					g_queueTail = nextTail;
-					LeaveCriticalSection(&g_lock);
+				EnterCriticalSection(&g_lock);
+				// If queue is full, drop the oldest packet (advance head)
+				int nextTail = (g_queueTail + 1) % QUEUE_SIZE;
+				if (nextTail == g_queueHead) {
+					g_queueHead = (g_queueHead + 1) % QUEUE_SIZE;
+					g_dropped++;
 				}
+				memcpy(g_queueData[g_queueTail], buf, payloadLen);
+				g_queueLen[g_queueTail] = payloadLen;
+				g_queueTail = nextTail;
+				LeaveCriticalSection(&g_lock);
 				break;
 			}
 			case HeartbeatAck:

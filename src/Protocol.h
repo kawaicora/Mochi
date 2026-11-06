@@ -13,14 +13,16 @@ namespace Protocol {
 const uint16_t PACKET_MAGIC = 0x4D43;
 const uint8_t PROTOCOL_VERSION = 1;
 
-// Header format: Magic(2) + Version(1) + Type(1) + Length(2) + Reserved(2) = 8 bytes
+// Header format: Magic(2) + Version(1) + Type(1) + Length(2) + fromPlayerId(4) + toPlayerId(4) + payloadLen(2) = 16 bytes
 #pragma pack(push, 1)
 struct PacketHeader {
 	uint16_t magic;
 	uint8_t  version;
 	uint8_t  type;
 	uint16_t length;
-	uint16_t reserved;
+	uint32_t fromPlayerId;
+	uint32_t toPlayerId;
+	uint16_t payloadLen;
 };
 #pragma pack(pop)
 
@@ -54,7 +56,9 @@ inline uint8_t* BuildPacket(uint8_t type, const void* body, uint16_t bodyLen, in
 	hdr->version = PROTOCOL_VERSION;
 	hdr->type = type;
 	hdr->length = bodyLen;
-	hdr->reserved = 0;
+	hdr->fromPlayerId = 0;
+	hdr->toPlayerId = 0;
+	hdr->payloadLen = 0;
 	if (body && bodyLen > 0) {
 		memcpy(buf + HEADER_SIZE, body, bodyLen);
 	}
@@ -90,32 +94,26 @@ struct PlayerJoinBody {
 };
 
 // ---- UdpData packet ----
-// Body: inner_type(u8) + from_player_id(u32) + to_player_id(u32) + payload_len(u16) + payload
+// 16-byte header already contains fromPlayerId, toPlayerId, payloadLen
+// Body is just the raw UDP payload
 const uint32_t BROADCAST_ID = 0xFFFFFFFF;
-
-struct UdpDataHeader {
-	uint8_t  innerType;
-	uint32_t fromPlayerId;
-	uint32_t toPlayerId;
-	uint16_t payloadLen;
-};
-#pragma pack(pop)
 
 inline uint8_t* BuildUdpData(uint8_t innerType, uint32_t fromId, uint32_t toId,
 							 const void* payload, uint16_t payloadLen, int& outLen) {
-	int bodyLen = sizeof(UdpDataHeader) + payloadLen;
-	uint8_t* body = new uint8_t[bodyLen];
-	UdpDataHeader* h = (UdpDataHeader*)body;
-	h->innerType = innerType;
-	h->fromPlayerId = fromId;
-	h->toPlayerId = toId;
-	h->payloadLen = payloadLen;
+	int total = HEADER_SIZE + payloadLen;
+	uint8_t* buf = new uint8_t[total];
+	PacketHeader* hdr = (PacketHeader*)buf;
+	hdr->magic = PACKET_MAGIC;
+	hdr->version = PROTOCOL_VERSION;
+	hdr->type = UdpData;
+	hdr->length = payloadLen;
+	hdr->fromPlayerId = fromId;
+	hdr->toPlayerId = toId;
+	hdr->payloadLen = payloadLen;
 	if (payload && payloadLen > 0)
-		memcpy(body + sizeof(UdpDataHeader), payload, payloadLen);
-
-	uint8_t* pkt = BuildPacket(UdpData, body, (uint16_t)bodyLen, outLen);
-	delete[] body;
-	return pkt;
+		memcpy(buf + HEADER_SIZE, payload, payloadLen);
+	outLen = total;
+	return buf;
 }
 
 // ---- Heartbeat ----
