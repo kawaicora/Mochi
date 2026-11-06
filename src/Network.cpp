@@ -1,3 +1,5 @@
+#ifdef ENABLE_EXT_NETWORK
+
 #include "Network.h"
 #include "Debug.h"
 #include "Protocol.h"
@@ -251,3 +253,5 @@ disconnected:
 	g_ready = false;
 	g_sock = INVALID_SOCKET;
 }
+
+#endif // ENABLE_EXT_NETWORK

@@ -18,8 +18,13 @@
 #include <iostream>
 
 #ifdef ENABLE_EXT_NETWORK
-#include "Network.h"
-#include "MochiINI.h"
+// Forward declaration - Network.h includes winsock2.h which conflicts with windows.h
+class Network {
+public:
+	static bool Init(const char* host, unsigned short port);
+	static void Shutdown();
+};
+#include <MochiINI.h>
 #endif
 HANDLE Mochi::hInstance = 0;
 bool Mochi::isRegistered = false;

@@ -1,3 +1,5 @@
+#ifdef ENABLE_EXT_NETWORK
+
 #include "UdpHook.h"
 #include "Debug.h"
 #include "Network.h"
@@ -5,8 +7,6 @@
 #include <Syringe.h>
 #include <Helpers/Macro.h>
 #include <WinsockInterfaceClass.h>
-
-static void InjectPacket(const void* data, int len);
 
 // ---------------------------------------------------------------------------
 // sendto hook: forward game packets to TCP relay server
@@ -63,7 +63,7 @@ DEFINE_HOOK(0x7C89B0, Hook_SendTo, 6)
 //
 // We must match this split: first 4 bytes -> CRC field, rest -> Buffer[].
 // ---------------------------------------------------------------------------
-static void InjectPacket(const void* data, int len)
+void InjectPacket(const void* data, int len)
 {
 	WinsockInterfaceClass* pWinsock = WinsockInterfaceClass::Instance;
 	if (!pWinsock) return;
@@ -111,3 +111,5 @@ void UdpHookInit()
 {
 	Debug::Log("UdpHookInit: sendto@0x7C89B0 hook installed\n");
 }
+
+#endif // ENABLE_EXT_NETWORK
