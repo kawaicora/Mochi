@@ -19,6 +19,8 @@ int Network::g_dropped = 0;
 
 static bool g_wsaStarted = false;
 static bool g_running = false;
+static char g_serverHost[256] = "";
+static unsigned short g_serverPort = 0;
 
 static const char* TypeName(uint8_t t) {
 	switch (t) {
@@ -116,6 +118,9 @@ bool Network::Init(const char* host, unsigned short port)
 	InitializeCriticalSection(&g_lock);
 	g_running = true;
 
+	strncpy_s(g_serverHost, host, sizeof(g_serverHost) - 1);
+	g_serverPort = port;
+
 	// Retry connection up to 5 times with 1s delay
 	bool connected = false;
 	for (int attempt = 1; attempt <= 5; attempt++) {
@@ -201,98 +206,155 @@ void Network::WorkerThread()
 {
 	char buf[8192];
 	PacketHeader hdr;
-	DWORD lastHeartbeat = GetTickCount();
 
-	while (g_running && g_sock != INVALID_SOCKET) {
-		// Check if we need to send heartbeat (every 3 seconds)
-		DWORD now = GetTickCount();
-		if (now - lastHeartbeat >= 3000) {
-			int hbLen;
-			uint8_t* hbPkt = BuildHeartbeat(hbLen);
-			SendAll(g_sock, (char*)hbPkt, hbLen);
-			delete[] hbPkt;
-			lastHeartbeat = now;
+	while (g_running) {
+		// Wait for socket to be connected
+		if (g_sock == INVALID_SOCKET) {
+			Sleep(1000);
+			continue;
 		}
 
-		// Set socket to non-blocking with timeout for heartbeat loop
-		fd_set readSet;
-		FD_ZERO(&readSet);
-		FD_SET(g_sock, &readSet);
-		TIMEVAL tv;
-		tv.tv_sec = 1;
-		tv.tv_usec = 0;
+		DWORD lastHeartbeat = GetTickCount();
+		bool connected = true;
 
-		int sel = select(0, &readSet, NULL, NULL, &tv);
-		if (sel == SOCKET_ERROR) goto disconnected;
-		if (sel == 0) continue; // timeout, loop back to send heartbeat
+		while (g_running && connected) {
+			// Check if we need to send heartbeat (every 3 seconds)
+			DWORD now = GetTickCount();
+			if (now - lastHeartbeat >= 3000) {
+				int hbLen;
+				uint8_t* hbPkt = BuildHeartbeat(hbLen);
+				bool hbOk = SendAll(g_sock, (char*)hbPkt, hbLen);
+				delete[] hbPkt;
+				if (!hbOk) {
+					Debug::Log("Heartbeat send failed\n");
+					connected = false;
+					break;
+				}
+				lastHeartbeat = now;
+			}
 
-		int total = 0;
-		while (total < HEADER_SIZE && g_running) {
-			int n = recv(g_sock, (char*)&hdr + total, HEADER_SIZE - total, 0);
-			if (n <= 0) goto disconnected;
-			total += n;
-		}
+			// Set socket to non-blocking with timeout for heartbeat loop
+			fd_set readSet;
+			FD_ZERO(&readSet);
+			FD_SET(g_sock, &readSet);
+			TIMEVAL tv;
+			tv.tv_sec = 1;
+			tv.tv_usec = 0;
 
-		if (hdr.magic != PACKET_MAGIC) goto disconnected;
+			int sel = select(0, &readSet, NULL, NULL, &tv);
+			if (sel == SOCKET_ERROR) {
+				Debug::Log("select error: %d\n", WSAGetLastError());
+				connected = false;
+				break;
+			}
+			if (sel == 0) continue; // timeout, loop back to send heartbeat
 
-		int bodyLen = hdr.length;
-		if (bodyLen > (int)sizeof(buf)) bodyLen = sizeof(buf);
-		total = 0;
-		while (total < bodyLen && g_running) {
-			int n = recv(g_sock, buf + total, bodyLen - total, 0);
-			if (n <= 0) goto disconnected;
-			total += n;
-		}
+			int total = 0;
+			while (total < HEADER_SIZE && g_running) {
+				int n = recv(g_sock, (char*)&hdr + total, HEADER_SIZE - total, 0);
+				if (n <= 0) {
+					Debug::Log("recv header failed: n=%d err=%d\n", n, WSAGetLastError());
+					connected = false;
+					break;
+				}
+				total += n;
+			}
+			if (!connected) break;
 
-		Debug::Log("[RECV] %s (%d bytes)\n", TypeName(hdr.type), bodyLen);
+			if (hdr.magic != PACKET_MAGIC) {
+				Debug::Log("Bad magic: %04X\n", hdr.magic);
+				connected = false;
+				break;
+			}
+
+			int bodyLen = hdr.length;
+			if (bodyLen > (int)sizeof(buf)) bodyLen = sizeof(buf);
+			total = 0;
+			while (total < bodyLen && g_running) {
+				int n = recv(g_sock, buf + total, bodyLen - total, 0);
+				if (n <= 0) {
+					Debug::Log("recv body failed: n=%d err=%d\n", n, WSAGetLastError());
+					connected = false;
+					break;
+				}
+				total += n;
+			}
+			if (!connected) break;
+
+			Debug::Log("[RECV] %s (%d bytes)\n", TypeName(hdr.type), bodyLen);
 #ifdef DEBUG_DISPLAY_PACKET
-		HexDump(&hdr, HEADER_SIZE + bodyLen, NULL);
+			HexDump(&hdr, HEADER_SIZE + bodyLen, NULL);
 #endif
 
-		switch (hdr.type) {
-		case Welcome: {
-			if (bodyLen >= 12) {
-				g_playerId = ((WelcomeBody*)buf)->playerId;
-				g_ready = true;
-				Debug::Log("Welcome! playerId=%u\n", g_playerId);
-			}
-			break;
-		}
-		case UdpData: {
-			if (bodyLen >= (int)sizeof(UdpDataHeader)) {
-				UdpDataHeader* uh = (UdpDataHeader*)buf;
-				int payloadLen = uh->payloadLen;
-				if (payloadLen > bodyLen - (int)sizeof(UdpDataHeader))
-					payloadLen = bodyLen - (int)sizeof(UdpDataHeader);
-				if (payloadLen > MAX_PKT) payloadLen = MAX_PKT;
-
-				EnterCriticalSection(&g_lock);
-				// If queue is full, drop the oldest packet (advance head)
-				int nextTail = (g_queueTail + 1) % QUEUE_SIZE;
-				if (nextTail == g_queueHead) {
-					g_queueHead = (g_queueHead + 1) % QUEUE_SIZE;
-					g_dropped++;
+			switch (hdr.type) {
+			case Welcome: {
+				if (bodyLen >= 12) {
+					g_playerId = ((WelcomeBody*)buf)->playerId;
+					g_ready = true;
+					Debug::Log("Welcome! playerId=%u\n", g_playerId);
 				}
-				memcpy(g_queueData[g_queueTail], buf + sizeof(UdpDataHeader), payloadLen);
-				g_queueLen[g_queueTail] = payloadLen;
-				g_queueTail = nextTail;
-				LeaveCriticalSection(&g_lock);
+				break;
 			}
-			break;
+			case UdpData: {
+				if (bodyLen >= (int)sizeof(UdpDataHeader)) {
+					UdpDataHeader* uh = (UdpDataHeader*)buf;
+					int payloadLen = uh->payloadLen;
+					if (payloadLen > bodyLen - (int)sizeof(UdpDataHeader))
+						payloadLen = bodyLen - (int)sizeof(UdpDataHeader);
+					if (payloadLen > MAX_PKT) payloadLen = MAX_PKT;
+
+					EnterCriticalSection(&g_lock);
+					// If queue is full, drop the oldest packet (advance head)
+					int nextTail = (g_queueTail + 1) % QUEUE_SIZE;
+					if (nextTail == g_queueHead) {
+						g_queueHead = (g_queueHead + 1) % QUEUE_SIZE;
+						g_dropped++;
+					}
+					memcpy(g_queueData[g_queueTail], buf + sizeof(UdpDataHeader), payloadLen);
+					g_queueLen[g_queueTail] = payloadLen;
+					g_queueTail = nextTail;
+					LeaveCriticalSection(&g_lock);
+				}
+				break;
+			}
+			case HeartbeatAck:
+				break;
+			case Disconnect:
+				Debug::Log("Server sent Disconnect\n");
+				connected = false;
+				break;
+			default:
+				break;
+			}
 		}
-		case HeartbeatAck:
-			break;
-		case Disconnect:
-			goto disconnected;
-		default:
-			break;
+
+		// Connection lost
+		if (g_sock != INVALID_SOCKET) {
+			closesocket(g_sock);
+			g_sock = INVALID_SOCKET;
+		}
+		g_ready = false;
+		Debug::Log("Worker ended, reconnecting in 3 seconds...\n");
+
+		// Wait 3 seconds before reconnecting
+		Sleep(3000);
+
+		// Try to reconnect
+		if (!g_running) break;
+		Debug::Log("Reconnecting to %s:%d...\n", g_serverHost, g_serverPort);
+		if (Connect(g_serverHost, g_serverPort)) {
+			Debug::Log("Reconnected, sending Hello...\n");
+			int helloLen;
+			uint8_t* helloPkt = BuildHello(0x00010000, 1234, "Player", helloLen);
+			SendAll(g_sock, (char*)helloPkt, helloLen);
+#ifdef DEBUG_DISPLAY_PACKET
+			HexDump(helloPkt, helloLen, "[SEND] Hello (reconnect)");
+#endif
+			delete[] helloPkt;
+		} else {
+			Debug::Log("Reconnect failed\n");
 		}
 	}
-
-disconnected:
-	Debug::Log("Worker ended\n");
-	g_ready = false;
-	g_sock = INVALID_SOCKET;
 }
 
 #endif // ENABLE_EXT_NETWORK
