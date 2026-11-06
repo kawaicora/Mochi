@@ -14,6 +14,7 @@
 #include <EventData.h>
 #include <EventHook.h>
 #include <SurfaceDebug.h>
+#include <MochiNetwork.h>
 #include <iostream>
 HANDLE Mochi::hInstance = 0;
 bool Mochi::isRegistered = false;
@@ -93,6 +94,9 @@ void Mochi::RegisterEvent() {
 
 
 		Debug::Log("Moshi Booted Successfully QvQ\n");
+
+		// Initialize MochiNetwork
+		MochiNetwork::Initialize();
 
 		});
 	RadarHook::RadarDrawEvent.Subscribe([]() {
