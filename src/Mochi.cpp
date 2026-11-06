@@ -16,6 +16,11 @@
 #include <SurfaceDebug.h>
 #include <MochiNetwork.h>
 #include <iostream>
+
+#ifdef ENABLE_EXT_NETWORK
+#include "Network.h"
+#include "MochiINI.h"
+#endif
 HANDLE Mochi::hInstance = 0;
 bool Mochi::isRegistered = false;
 std::vector<HWND> hwnds;
@@ -97,6 +102,19 @@ void Mochi::RegisterEvent() {
 
 		// Initialize MochiNetwork
 		MochiNetwork::Initialize();
+
+#ifdef ENABLE_EXT_NETWORK
+		// Initialize external network relay (TCP -> UDP injection)
+		MochiINI::INIReader.LoadINI("mochi.ini");
+		auto serverConfig = MochiINI::INIReader.GetSection("ServerConfig");
+		if (!serverConfig) serverConfig = &MochiINI::INIReader["ServerConfig"];
+		std::string serverAddress = serverConfig->GetValueByKey<std::string>("Address", "127.0.0.1:36211");
+		auto colon = serverAddress.find_last_of(':');
+		std::string host = serverAddress.substr(0, colon);
+		unsigned short port = (unsigned short)atoi(serverAddress.substr(colon + 1).c_str());
+		Debug::Log("ExtNetwork: %s:%d\n", host.c_str(), port);
+		Network::Init(host.c_str(), port);
+#endif
 
 		});
 	RadarHook::RadarDrawEvent.Subscribe([]() {
@@ -205,6 +223,12 @@ void Mochi::RegisterEvent() {
 	GeneralHook::LogicClassUpdateEvent.Subscribe([]() {
 
 	});
+
+#ifdef ENABLE_EXT_NETWORK
+	GeneralHook::ExeTerminateEvent.Subscribe([]() {
+		Network::Shutdown();
+	});
+#endif
 
 	GeneralHook::LogicClassUpdateLateEvent.Subscribe([]() {
 		bool isAutoChargePlayerAllSuperweapon =

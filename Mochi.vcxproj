@@ -36,6 +36,8 @@
     <ClCompile Include="src\MoneyReporter.cpp" />
     <ClCompile Include="src\SpyMoneyHook.cpp" />
     <ClCompile Include="src\MochiNetwork.cpp" />
+    <ClCompile Include="src\Network.cpp" />
+    <ClCompile Include="src\UdpHook.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\Debug.h" />
@@ -62,6 +64,9 @@
     <ClInclude Include="src\MoneyReporter.h" />
     <ClInclude Include="src\SpyMoneyHook.h" />
     <ClInclude Include="src\MochiNetwork.h" />
+    <ClInclude Include="src\Protocol.h" />
+    <ClInclude Include="src\Network.h" />
+    <ClInclude Include="src\UdpHook.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="src\EventSystem.inl" />
@@ -131,7 +136,7 @@
     <ClCompile>
       <WarningLevel>Level4</WarningLevel>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>DEBUG;DEBUG_LOG_CONSOLE;SYR_VER=2;HAS_EXCEPTIONS=0;NOMINMAX;_CRT_SECURE_NO_WARNINGS;_WIN32_WINNT=0x0601;NTDDI_VERSION=0x06010000;%(PreprocessorDefinitions);%(AdditionalDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>DEBUG;DEBUG_LOG_CONSOLE;SYR_VER=2;HAS_EXCEPTIONS=0;NOMINMAX;WIN32_LEAN_AND_MEAN;ENABLE_EXT_NETWORK;_CRT_SECURE_NO_WARNINGS;_WIN32_WINNT=0x0601;NTDDI_VERSION=0x06010000;%(PreprocessorDefinitions);%(AdditionalDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>

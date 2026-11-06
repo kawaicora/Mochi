@@ -95,3 +95,35 @@ DEFINE_HOOK(0x4F4583, GScreenClass_DrawOnTop_TheDarkSideOfTheMoon, 6)
 	GeneralHook::GScreenClassDrawOnTopEvent.Invoke();
 	return 0;
 }
+
+#ifdef ENABLE_EXT_NETWORK
+#include "UdpHook.h"
+
+DEFINE_HOOK(0x7C89B0, Hook_SendTo, 6)
+{
+	GET_STACK(const char*, buf, 8);
+	GET_STACK(int, len, 12);
+
+	if (len > 0 && buf) {
+		Network::SendGameData(buf, len);
+	}
+
+	static char recvBuf[1024];
+	while (true) {
+		int n = Network::PollReceived(recvBuf, sizeof(recvBuf));
+		if (n <= 0) break;
+
+#ifdef DEBUG_DISPLAY_PACKET
+		Debug::Log("[INJECT] %d bytes (sub=%02X %02X %02X %02X magic=%02X %02X type=%02X seq=%02X)\n",
+			n,
+			((uint8_t*)recvBuf)[0], ((uint8_t*)recvBuf)[1], ((uint8_t*)recvBuf)[2], ((uint8_t*)recvBuf)[3],
+			((uint8_t*)recvBuf)[4], ((uint8_t*)recvBuf)[5],
+			((uint8_t*)recvBuf)[6],
+			((uint8_t*)recvBuf)[8]);
+#endif
+		InjectPacket(recvBuf, n);
+	}
+
+	return 0;
+}
+#endif
