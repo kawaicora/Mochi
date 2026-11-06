@@ -81,6 +81,21 @@
     <ClCompile Include="src\SurfaceDebug.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="src\MoneyReporter.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\SpyMoneyHook.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\MochiNetwork.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Network.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\UdpHook.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\Debug.h">
@@ -144,6 +159,24 @@
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="src\SurfaceDebug.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="src\MoneyReporter.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="src\SpyMoneyHook.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="src\MochiNetwork.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Protocol.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Network.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="src\UdpHook.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>

@@ -111,9 +111,13 @@ void Mochi::RegisterEvent() {
 #ifdef ENABLE_EXT_NETWORK
 		// Initialize external network relay (TCP -> UDP injection)
 		MochiINI::INIReader.LoadINI("mochi.ini");
-		auto serverConfig = MochiINI::INIReader.GetSection("ServerConfig");
-		if (!serverConfig) serverConfig = &MochiINI::INIReader["ServerConfig"];
-		std::string serverAddress = serverConfig->GetValueByKey<std::string>("Address", "127.0.0.1:36211");
+		auto serverConfig = (MochiINI::Section*)MochiINI::INIReader.GetSection("ServerConfig");
+		if (!serverConfig) {
+			serverConfig = &MochiINI::INIReader["ServerConfig"];
+			MochiINI::INIReader["ServerConfig"]["Address"].Raw = "app.kawaimoe.org:36211";
+			MochiINI::INIReader.SaveINI("mochi.ini");
+		}
+		std::string serverAddress = serverConfig->GetValueByKey<std::string>("Address", "app.kawaimoe.org:36211");
 		auto colon = serverAddress.find_last_of(':');
 		std::string host = serverAddress.substr(0, colon);
 		unsigned short port = (unsigned short)atoi(serverAddress.substr(colon + 1).c_str());
