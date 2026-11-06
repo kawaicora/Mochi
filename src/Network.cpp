@@ -42,10 +42,11 @@ void HexDump(const void* data, int len, const char* title)
 {
 	if (title && title[0]) Debug::Log("%s\n", title);
 	const uint8_t* p = (const uint8_t*)data;
-	char buf[4096];
+	static char buf[4096];
 	int pos = 0;
 	for (int i = 0; i < len; i += 16) {
 		int rowLen = (len - i < 16) ? (len - i) : 16;
+		if (pos >= (int)sizeof(buf) - 80) break;
 		for (int j = 0; j < rowLen; j++) {
 			pos += sprintf_s(buf + pos, sizeof(buf) - pos, "%02X ", p[i + j]);
 		}
