@@ -84,7 +84,7 @@ void InjectPacket(const void* data, int len)
 	//   bytes 4+  -> Buffer[]  (offset 0x20)
 	pBuf->CRC = *(uint32_t*)data;
 	int dataLen = len - 4;
-	if (dataLen > 640) dataLen = 640;
+	if (dataLen > 1400) dataLen = 1400;
 	memcpy(pBuf->Buffer, (const char*)data + 4, dataLen);
 	pBuf->BufferLen = dataLen;
 
