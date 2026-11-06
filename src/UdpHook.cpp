@@ -18,9 +18,13 @@ DEFINE_HOOK(0x7C89B0, Hook_SendTo, 6)
 	GET_STACK(const char*, buf, 8);
 	GET_STACK(int, len, 12);
 
-	// Forward to TCP relay server (copy, don't replace)
 	if (len > 0 && buf) {
+		// Forward to TCP relay server
 		Network::SendGameData(buf, len);
+
+		// Simulate LAN loopback: inject our own broadcast back into recv queue
+		// (In normal LAN play, broadcast packets are looped back by IP stack)
+		InjectPacket(buf, len);
 	}
 
 	// Drain received packets from TCP relay and inject into game recv queue
@@ -41,7 +45,6 @@ DEFINE_HOOK(0x7C89B0, Hook_SendTo, 6)
 		InjectPacket(recvBuf, n);
 	}
 
-	// Call original sendto so game network stack works normally
 	return 0;
 }
 
