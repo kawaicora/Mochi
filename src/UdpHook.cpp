@@ -94,6 +94,14 @@ void InjectPacket(const void* data, int len)
 	pBuf->Allocated = 0;
 	pBuf->SrcPort = 0;
 
+#ifdef DEBUG_DISPLAY_PACKET
+	Debug::Log("[INJECT] len=%d sub=%02X %02X %02X %02X magic=%02X %02X type=%02X\n",
+		len,
+		((uint8_t*)data)[0], ((uint8_t*)data)[1], ((uint8_t*)data)[2], ((uint8_t*)data)[3],
+		((uint8_t*)data)[4], ((uint8_t*)data)[5],
+		((uint8_t*)data)[6]);
+#endif
+
 	// Add to InBuffers (DynamicVectorClass<WinsockBufferType*>)
 	auto& inBufs = pWinsock->InBuffers;
 	if (inBufs.Count < inBufs.Capacity) {
