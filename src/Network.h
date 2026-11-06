@@ -32,7 +32,7 @@ private:
 	// Packet queue: each received game UDP packet stored separately
 	// Large queue to handle burst during game start (map data sync)
 	static const int QUEUE_SIZE = 256;
-	static const int MAX_PKT = 1500;
+	static const int MAX_PKT = 2048;
 	static char g_queueData[QUEUE_SIZE][MAX_PKT];
 	static int g_queueLen[QUEUE_SIZE];
 	static int g_queueHead;  // read index
