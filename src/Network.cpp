@@ -43,9 +43,8 @@ void HexDump(const void* data, int len, const char* title)
 	if (title && title[0]) Debug::Log("%s\n", title);
 	const uint8_t* p = (const uint8_t*)data;
 	for (int i = 0; i < len; i += 16) {
-		char line[80];
+		char line[128];
 		int pos = 0;
-		pos += sprintf_s(line + pos, sizeof(line) - pos, "  ");
 		int rowLen = (len - i < 16) ? (len - i) : 16;
 		for (int j = 0; j < rowLen; j++) {
 			pos += sprintf_s(line + pos, sizeof(line) - pos, "%02X ", p[i + j]);
@@ -53,14 +52,13 @@ void HexDump(const void* data, int len, const char* title)
 		for (int j = rowLen; j < 16; j++) {
 			pos += sprintf_s(line + pos, sizeof(line) - pos, "   ");
 		}
-		Debug::Log("%s ", line);
 		char ascii[17];
 		for (int j = 0; j < rowLen; j++) {
 			uint8_t c = p[i + j];
 			ascii[j] = (c >= 32 && c < 127) ? c : '.';
 		}
 		ascii[rowLen] = 0;
-		Debug::Log("|%s|\n", ascii);
+		Debug::Log("%s |%s|\n", line, ascii);
 	}
 }
 
