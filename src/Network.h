@@ -16,6 +16,9 @@ public:
 	static void Shutdown();
 	static bool SendGameData(const void* data, int len);
 	static int PollReceived(void* outBuf, int maxLen);
+	// Same as PollReceived but also reports which player the packet came from,
+	// so the injector can fill the source IP/port fields the native recv path sets.
+	static int PollReceivedEx(void* outBuf, int maxLen, unsigned int* fromId);
 	static bool IsReady();
 	static unsigned int GetPlayerId();
 
@@ -35,6 +38,7 @@ private:
 	static const int MAX_PKT = 2048;
 	static char g_queueData[QUEUE_SIZE][MAX_PKT];
 	static int g_queueLen[QUEUE_SIZE];
+	static unsigned int g_queueFromId[QUEUE_SIZE];
 	static int g_queueHead;  // read index
 	static int g_queueTail;  // write index
 	static int g_dropped;    // dropped packets counter

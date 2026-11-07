@@ -7,4 +7,4 @@
 #include <windows.h>
 
 void UdpHookInit();
-void InjectPacket(const void* data, int len);
+void InjectPacket(const void* data, int len, unsigned int fromId);

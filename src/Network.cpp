@@ -13,6 +13,7 @@ unsigned int Network::g_playerId = 0;
 bool Network::g_ready = false;
 char Network::g_queueData[Network::QUEUE_SIZE][Network::MAX_PKT];
 int Network::g_queueLen[Network::QUEUE_SIZE];
+unsigned int Network::g_queueFromId[Network::QUEUE_SIZE];
 int Network::g_queueHead = 0;
 int Network::g_queueTail = 0;
 int Network::g_dropped = 0;
@@ -194,12 +195,19 @@ bool Network::SendGameData(const void* data, int len)
 
 int Network::PollReceived(void* outBuf, int maxLen)
 {
+	unsigned int ignored = 0;
+	return PollReceivedEx(outBuf, maxLen, &ignored);
+}
+
+int Network::PollReceivedEx(void* outBuf, int maxLen, unsigned int* fromId)
+{
 	EnterCriticalSection(&g_lock);
 	if (g_queueHead == g_queueTail) { LeaveCriticalSection(&g_lock); return 0; }
 
 	int len = g_queueLen[g_queueHead];
 	if (len > maxLen) len = maxLen;
 	memcpy(outBuf, g_queueData[g_queueHead], len);
+	if (fromId) *fromId = g_queueFromId[g_queueHead];
 	g_queueHead = (g_queueHead + 1) % QUEUE_SIZE;
 
 	LeaveCriticalSection(&g_lock);
@@ -290,7 +298,14 @@ void Network::WorkerThread()
 
 			Debug::Log("[RECV] %s (%d bytes)\n", TypeName(hdr.type), bodyLen);
 #ifdef DEBUG_DISPLAY_PACKET
-			HexDump(&hdr, HEADER_SIZE + bodyLen, NULL);
+			{
+				// hdr and buf are separate stack variables, not adjacent.
+				// Copy them into one contiguous buffer for a correct hexdump.
+				static char dumpBuf[8192 + HEADER_SIZE];
+				memcpy(dumpBuf, &hdr, HEADER_SIZE);
+				memcpy(dumpBuf + HEADER_SIZE, buf, bodyLen);
+				HexDump(dumpBuf, HEADER_SIZE + bodyLen, "[RECV]");
+			}
 #endif
 
 			switch (hdr.type) {
@@ -317,6 +332,7 @@ void Network::WorkerThread()
 				}
 				memcpy(g_queueData[g_queueTail], buf, payloadLen);
 				g_queueLen[g_queueTail] = payloadLen;
+				g_queueFromId[g_queueTail] = hdr.fromPlayerId;
 				g_queueTail = nextTail;
 				LeaveCriticalSection(&g_lock);
 				break;
