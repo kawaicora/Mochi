@@ -6,6 +6,7 @@
 class Debug {
 public:
 	static void Log(const char* pFormat, ...);
+	static void LogToFile(const char* text);
 	static void LogGame(const char* pFormat, ...);
 	static std::string WStringToUTF8(const wchar_t* wstr);
 	static std::string WStringToGBK(const wchar_t* wstr);

@@ -104,18 +104,40 @@ void Mochi::RegisterEvent() {
 #ifdef DEBUG
 		DebugTools::DetachFromDebugger();
 
+		// Mirror the game's own log stream (and ours, which goes through it) to
+		// debug\debug.log. va_copy keeps the va_list reusable for other
+		// subscribers, e.g. the console one below.
+		GeneralHook::DebugLogEvent.Subscribe([](const char* pFormat, va_list pArg) {
+			char buf[2048] = { 0 };
+			va_list copy;
+			va_copy(copy, pArg);
+			__try
+			{
+				vsprintf_s(buf, pFormat, copy);
+			}
+			__except (EXCEPTION_EXECUTE_HANDLER)
+			{
+				buf[0] = 0;
+			}
+			va_end(copy);
+			if (buf[0]) Debug::LogToFile(buf);
+			});
+
 #ifdef DEBUG_LOG_CONSOLE
 		Debug::CreateConsoleAndSetUTF8();
 		GeneralHook::DebugLogEvent.Subscribe([](const char* pFormat, va_list pArg) {
 			char buf[2048] = { 0 };
+			va_list copy;
+			va_copy(copy, pArg);
 			__try
 			{
-				vsprintf_s(buf, pFormat, pArg); // MSVC三参数模板重载，Ares同款
+				vsprintf_s(buf, pFormat, copy); // MSVC three-arg overload, same as Ares
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
 				strcpy(buf, "[Mochi ERROR: Bad format string]");
 			}
+			va_end(copy);
 			std::cout << buf;
 			});
 #endif
