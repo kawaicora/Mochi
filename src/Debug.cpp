@@ -3,7 +3,7 @@
 #include <stringapiset.h>
 #include <ASMMacros.h>
 #include <iostream>
-static void FileLogWrite(const char* text);
+
 char Debug::LogStringBuffer[4096];
 wchar_t Debug::WLogStringBuffer[4096];
 int Debug::CurrentBufferSize = 0;
@@ -202,74 +202,7 @@ void Debug::Log(const char* pFormat, ...)
 	LogGame("%s %s", "[Mochi]", log.c_str());
 	va_end(args);
 }
-// ---------------------------------------------------------------------------
-// File mirror: append every log line to debug\debug.log under the game's
-// working directory, with a millisecond timestamp. Kept behind one critical
-// section because both the game thread and the relay worker thread log.
-// ---------------------------------------------------------------------------
-static FILE* g_pLogFile = nullptr;
-static CRITICAL_SECTION g_logFileLock;
-static LONG g_logFileLockInit = 0;
 
-static void FileLogWrite(const char* text)
-{
-	if (InterlockedCompareExchange(&g_logFileLockInit, 1, 0) == 0)
-		InitializeCriticalSection(&g_logFileLock);
-
-	EnterCriticalSection(&g_logFileLock);
-
-	if (!g_pLogFile)
-	{
-		char path[MAX_PATH] = "debug\\debug.log";
-		CreateDirectoryA("debug", nullptr);
-		g_pLogFile = fopen(path, "a");
-
-		if (!g_pLogFile)
-		{
-			// Fallback: current directory may be read-only (e.g. Program Files).
-			// Use the directory that holds the game executable instead.
-			char exePath[MAX_PATH];
-			if (GetModuleFileNameA(nullptr, exePath, MAX_PATH) > 0)
-			{
-				char* slash = strrchr(exePath, '\\');
-				if (slash)
-				{
-					*slash = 0;
-					std::string dir = std::string(exePath) + "\\debug";
-					CreateDirectoryA(dir.c_str(), nullptr);
-					std::string full = dir + "\\debug.log";
-					g_pLogFile = fopen(full.c_str(), "a");
-					if (g_pLogFile)
-					{
-						// Remember the real path so the BOM probe below reads the
-						// same file instead of the one that failed to open.
-						strncpy_s(path, full.c_str(), _TRUNCATE);
-					}
-				}
-			}
-		}
-
-		if (!g_pLogFile)
-		{
-			LeaveCriticalSection(&g_logFileLock);
-			return;
-		}
-	}
-
-	SYSTEMTIME st;
-	GetLocalTime(&st);
-	fprintf(g_pLogFile, "[%02d:%02d:%02d.%03d] %s\n",
-		st.wHour, st.wMinute, st.wSecond, st.wMilliseconds, text);
-	fflush(g_pLogFile);
-
-	LeaveCriticalSection(&g_logFileLock);
-}
-
-void Debug::LogToFile(const char* text)
-{
-	if (text && text[0])
-		FileLogWrite(text);
-}
 
 void Debug::LogGame(const char* pFormat, ...)
 {
