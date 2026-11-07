@@ -296,8 +296,9 @@ void Network::WorkerThread()
 			}
 			if (!connected) break;
 
-			Debug::Log("[RECV] %s (%d bytes)\n", TypeName(hdr.type), bodyLen);
+			
 #ifdef DEBUG_DISPLAY_PACKET
+			Debug::Log("[RECV] %s (%d bytes)\n", TypeName(hdr.type), bodyLen);
 			{
 				// hdr and buf are separate stack variables, not adjacent.
 				// Copy them into one contiguous buffer for a correct hexdump.

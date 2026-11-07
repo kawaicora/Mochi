@@ -76,9 +76,6 @@ DEFINE_HOOK(0x7C89B0, Hook_SendTo, 6)
 	GET_STACK(int, len, 12);
 
 	if (len > 0 && buf) {
-#ifdef DEBUG_DISPLAY_PACKET
-		LogHead("GAME_SEND", buf, len);
-#endif
 		// Forward to TCP relay server
 		Network::SendGameData(buf, len);
 	}
