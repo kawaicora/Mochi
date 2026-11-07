@@ -183,13 +183,15 @@ void Mochi::RegisterEvent() {
 			// 配置不存在时，创建 Section
 			MochiINI::PlayerBaseConfig =
 				&MochiINI::INIReader["PlayerBaseConfig"];
-			MochiINI::INIReader["PlayerBaseConfig"]["LAUNCHSUPERWEAPONLIST"].Raw = "NukeSpecial, PsychicDominatorSpecial, LightningStormSpecial, IronCurtainSpecial";
-			MochiINI::INIReader["PlayerBaseConfig"]["ISINSTANTCONSTRUCTION"].Raw = "false";
-			MochiINI::INIReader["PlayerBaseConfig"]["ISAUTOCHARGEPLAYERALLSUPERWEAPON"].Raw = "false";
-			MochiINI::INIReader["PlayerBaseConfig"]["ISAICONTROL"].Raw = "false";
-			MochiINI::INIReader["PlayerBaseConfig"]["ISDRAWGAMEOBJECTINFO"].Raw = "false";
-			MochiINI::INIReader["PlayerBaseConfig"]["ISDRAWHOUSEINFO"].Raw = "false";
-
+			MochiINI::INIReader["PlayerBaseConfig"]["LaunchSuperWeaponList"].Raw = "NukeSpecial, PsychicDominatorSpecial, LightningStormSpecial, IronCurtainSpecial";
+			MochiINI::INIReader["PlayerBaseConfig"]["IsInstantConstruction"].Raw = "false";
+			MochiINI::INIReader["PlayerBaseConfig"]["IsAutoChargePlayerAllSuperweapon"].Raw = "false";
+			MochiINI::INIReader["PlayerBaseConfig"]["IsUnlockAllTech"].Raw = "false";
+			MochiINI::INIReader["PlayerBaseConfig"]["IsAIControl"].Raw = "false";
+			MochiINI::INIReader["PlayerBaseConfig"]["IsDrawGameObjectInfo"].Raw = "false";
+			MochiINI::INIReader["PlayerBaseConfig"]["IsDrawHouseInfo"].Raw = "false";
+			
+			
 		}
 
 		MochiINI::INIReader.SaveINI("mochi.ini");
