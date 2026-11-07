@@ -176,20 +176,24 @@ void Mochi::RegisterEvent() {
 
 	GeneralHook::CmdLineParseEvent.Subscribe([](GeneralHook::CmdLineArgs args) {
 		Debug::LogW(L"Mochi 挂载成功 QvQ\n");
-		Debug::Log("###############################INILoadConfig######################################\n");
+		Debug::Log("INILoadConfig  mochi.ini \n");
 		MochiINI::INIReader.LoadINI("mochi.ini");
 		MochiINI::PlayerBaseConfig = (MochiINI::Section*)MochiINI::INIReader.GetSection("PlayerBaseConfig");
+		if (!MochiINI::PlayerBaseConfig) {
+			// 配置不存在时，创建 Section
+			MochiINI::PlayerBaseConfig =
+				&MochiINI::INIReader["PlayerBaseConfig"];
+			MochiINI::INIReader["PlayerBaseConfig"]["LAUNCHSUPERWEAPONLIST"].Raw = "NukeSpecial, PsychicDominatorSpecial, LightningStormSpecial, IronCurtainSpecial";
+			MochiINI::INIReader["PlayerBaseConfig"]["ISINSTANTCONSTRUCTION"].Raw = "false";
+			MochiINI::INIReader["PlayerBaseConfig"]["ISAUTOCHARGEPLAYERALLSUPERWEAPON"].Raw = "false";
+			MochiINI::INIReader["PlayerBaseConfig"]["ISAICONTROL"].Raw = "false";
+			MochiINI::INIReader["PlayerBaseConfig"]["ISDRAWGAMEOBJECTINFO"].Raw = "false";
+			MochiINI::INIReader["PlayerBaseConfig"]["ISDRAWHOUSEINFO"].Raw = "false";
 
-		if (MochiINI::PlayerBaseConfig)
-		{
-			for (auto& v : MochiINI::PlayerBaseConfig->Keys)
-			{
-				Debug::Log(
-					"%s %s\n",
-					v.first.c_str(), v.second.c_str());
-			}
 		}
-		Debug::Log("###############################INILoadConfigEnd######################################\n");
+
+		MochiINI::INIReader.SaveINI("mochi.ini");
+
 	});
 
 	GeneralHook::CommandClassRegisterEvent.Subscribe([]() {

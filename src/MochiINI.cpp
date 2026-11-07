@@ -77,7 +77,26 @@ bool MochiINI::LoadINI(
     }
 
     if (foundPath.empty())
-        return false;
+    {
+        //
+        // 没有配置文件时，在默认位置创建一个空文件，
+        // 让玩家有一个可以直接编辑的 INI
+        //
+        try
+        {
+            std::ofstream file(
+                std::filesystem::path(filename),
+                std::ios::out |
+                std::ios::trunc |
+                std::ios::binary);
+
+            return file.good();
+        }
+        catch (...)
+        {
+            return false;
+        }
+    }
 
     std::ifstream file(foundPath);
 
