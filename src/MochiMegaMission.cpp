@@ -1,5 +1,24 @@
 ﻿#include <MochiMegaMission.h>
 #include <Debug.h>
+#include <windows.h>
+
+// A Mission event stores only an ID; As_Abstract() looks that ID up in the index
+// and never checks whether the object behind it is still alive. Reading UIName
+// through a dead vtable then faults with C0000005 and takes the game down, so
+// every name lookup from a Mission event goes through here instead.
+static const wchar_t* SafeUIName(AbstractClass* pAbstract)
+{
+	__try {
+		if (pAbstract) {
+			const wchar_t* name = static_cast<ObjectClass*>(pAbstract)->GetType()->UIName;
+			if (name) return name;
+		}
+	}
+	__except (EXCEPTION_EXECUTE_HANDLER) {
+	}
+	return L"?";
+}
+
 
 
 
@@ -20,11 +39,11 @@ void MochiMegaMission::ShowMegaMissionInfo(EventData* data) {	switch ((Mission)d
 			if ((AbstractType)data->MegaMission.Target.m_RTTI == AbstractType::Abstract)
 			{
 				AbstractClass* pTargetAbstract = data->MegaMission.Target.As_Abstract();
-				Debug::LogW(L"MegaMission Event: %ls 收到攻击 %ls 命令\n", ((ObjectClass*)pWhomAbstract)->GetType()->UIName, ((ObjectClass*)pTargetAbstract)->GetType()->UIName);
+				Debug::LogW(L"MegaMission Event: %ls 收到攻击 %ls 命令\n", SafeUIName(pWhomAbstract), SafeUIName(pTargetAbstract));
 			}
 			else if((AbstractType)data->MegaMission.Target.m_RTTI == AbstractType::Cell){
 				CellClass* pCell = data->MegaMission.Target.As_Cell();
-				Debug::LogW(L"MegaMission Event: %ls 收到攻击坐标 %d %d 命令\n", ((ObjectClass*)pWhomAbstract)->GetType()->UIName, pCell->MapCoords.X, pCell->MapCoords.Y);
+				Debug::LogW(L"MegaMission Event: %ls 收到攻击坐标 %d %d 命令\n", SafeUIName(pWhomAbstract), pCell->MapCoords.X, pCell->MapCoords.Y);
 			}
 		}
 		break;
@@ -34,7 +53,7 @@ void MochiMegaMission::ShowMegaMissionInfo(EventData* data) {	switch ((Mission)d
 			AbstractClass* pWhomAbstract = data->MegaMission.Whom.As_Abstract();
 			if ((AbstractType)data->MegaMission.Destination.m_RTTI == AbstractType::Cell) {
 				CellClass* pCell = data->MegaMission.Destination.As_Cell();
-				Debug::LogW(L"MegaMission Event: %ls 收到移动到 %d %d 命令\n", ((ObjectClass*)pWhomAbstract)->GetType()->UIName, pCell->MapCoords.X, pCell->MapCoords.Y);
+				Debug::LogW(L"MegaMission Event: %ls 收到移动到 %d %d 命令\n", SafeUIName(pWhomAbstract), pCell->MapCoords.X, pCell->MapCoords.Y);
 			}
 		}
 		
@@ -45,7 +64,7 @@ void MochiMegaMission::ShowMegaMissionInfo(EventData* data) {	switch ((Mission)d
 			AbstractClass* pWhomAbstract = data->MegaMission.Whom.As_Abstract();
 			if ((AbstractType)data->MegaMission.Destination.m_RTTI == AbstractType::Cell) {
 				CellClass* pCell = data->MegaMission.Destination.As_Cell();
-				Debug::LogW(L"MegaMission Event: %ls 收到强制移动到 %d %d 命令\n", ((ObjectClass*)pWhomAbstract)->GetType()->UIName, pCell->MapCoords.X, pCell->MapCoords.Y);
+				Debug::LogW(L"MegaMission Event: %ls 收到强制移动到 %d %d 命令\n", SafeUIName(pWhomAbstract), pCell->MapCoords.X, pCell->MapCoords.Y);
 			}
 		}
 		break;
@@ -59,7 +78,7 @@ void MochiMegaMission::ShowMegaMissionInfo(EventData* data) {	switch ((Mission)d
 			AbstractClass* pWhomAbstract = data->MegaMission.Whom.As_Abstract();
 			if ((AbstractType)data->MegaMission.Target.m_RTTI == AbstractType::Cell) {
 				CellClass* pCell = data->MegaMission.Target.As_Cell();
-				Debug::LogW(L"MegaMission Event: %ls 收到警戒 %d %d 命令\n", ((ObjectClass*)pWhomAbstract)->GetType()->UIName, pCell->MapCoords.X, pCell->MapCoords.Y);
+				Debug::LogW(L"MegaMission Event: %ls 收到警戒 %d %d 命令\n", SafeUIName(pWhomAbstract), pCell->MapCoords.X, pCell->MapCoords.Y);
 			}
 		}
 		break;
@@ -78,7 +97,7 @@ void MochiMegaMission::ShowMegaMissionInfo(EventData* data) {	switch ((Mission)d
 			AbstractClass* pWhomAbstract = data->MegaMission.Whom.As_Abstract();
 			if ((AbstractType)data->MegaMission.Destination.m_RTTI == AbstractType::Abstract) {
 				AbstractClass* pDestinationAbstract = data->MegaMission.Destination.As_Abstract();
-				Debug::LogW(L"MegaMission Event: %ls 收到占领 %ls 命令\n", ((ObjectClass*)pWhomAbstract)->GetType()->UIName, ((ObjectClass*)pDestinationAbstract)->GetType()->UIName);
+				Debug::LogW(L"MegaMission Event: %ls 收到占领 %ls 命令\n", SafeUIName(pWhomAbstract), SafeUIName(pDestinationAbstract));
 			}
 			else {
 
@@ -124,7 +143,7 @@ void MochiMegaMission::ShowMegaMissionInfo(EventData* data) {	switch ((Mission)d
 			if ((AbstractType)data->MegaMission.Target.m_RTTI == AbstractType::Abstract)
 			{
 				AbstractClass* pTargetAbstract = data->MegaMission.Target.As_Abstract();
-				Debug::LogW(L"MegaMission Event: %ls 收到卸载 %ls 命令\n", ((ObjectClass*)pWhomAbstract)->GetType()->UIName, ((ObjectClass*)pTargetAbstract)->GetType()->UIName);
+				Debug::LogW(L"MegaMission Event: %ls 收到卸载 %ls 命令\n", SafeUIName(pWhomAbstract), SafeUIName(pTargetAbstract));
 			}
 		}
 		break;

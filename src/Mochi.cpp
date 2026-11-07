@@ -24,8 +24,9 @@ public:
 	static bool Init(const char* host, unsigned short port);
 	static void Shutdown();
 };
-// Same reason: UdpHook.h pulls in winsock2.h, so declare the entry point here.
+// Same reason: UdpHook.h pulls in winsock2.h, so declare the entry points here.
 void UdpHookDrain();
+void UdpHookInit();
 #include <MochiINI.h>
 #endif
 HANDLE Mochi::hInstance = 0;
@@ -153,6 +154,10 @@ void Mochi::RegisterEvent() {
 		unsigned short port = (unsigned short)atoi(serverAddress.substr(colon + 1).c_str());
 		Debug::Log("ExtNetwork: %s:%d\n", host.c_str(), port);
 		Network::Init(host.c_str(), port);
+
+		// Patch the game's own disconnect verdicts. Never called before, which
+		// is why the relay worked but the session still dropped after a while.
+		UdpHookInit();
 #endif
 
 		});
