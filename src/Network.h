@@ -32,9 +32,10 @@ private:
 	static unsigned int g_playerId;
 	static bool g_ready;
 
-	// Packet queue: each received game UDP packet stored separately
-	// Large queue to handle burst during game start (map data sync)
-	static const int QUEUE_SIZE = 256;
+	// Packet queue: each received game UDP packet stored separately.
+	// Same depth as the game's own receive ring (StaticInBuffer[128]), so the
+	// relay side and the game side stay one-to-one.
+	static const int QUEUE_SIZE = 128;
 	static const int MAX_PKT = 2048;
 	static char g_queueData[QUEUE_SIZE][MAX_PKT];
 	static int g_queueLen[QUEUE_SIZE];

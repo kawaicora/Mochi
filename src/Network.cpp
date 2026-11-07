@@ -329,6 +329,12 @@ void Network::WorkerThread()
 				if (nextTail == g_queueHead) {
 					g_queueHead = (g_queueHead + 1) % QUEUE_SIZE;
 					g_dropped++;
+					// Report every 100 drops so we can tell from the log whether
+					// the receive queue is overflowing (that would silently lose
+					// game data).
+					if ((g_dropped % 100) == 1) {
+						Debug::Log("[QUEUE] full, dropped oldest (total=%d)\n", g_dropped);
+					}
 				}
 				memcpy(g_queueData[g_queueTail], buf, payloadLen);
 				g_queueLen[g_queueTail] = payloadLen;

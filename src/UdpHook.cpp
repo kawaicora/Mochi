@@ -32,9 +32,35 @@ static int memmem_magic(const void* data, int len)
 #endif
 
 // ---------------------------------------------------------------------------
-// sendto hook: forward game packets to TCP relay server
-// Also drain the receive queue here, since we know the game thread is running
-// its network loop when it calls sendto.
+// Can we hand one more packet to the game right now?
+//
+// The game's receive ring is WinsockInterfaceClass::StaticInBuffer[128]. We
+// inject by claiming the slot at StaticInBufferPos. If that slot is still
+// marked InUse, the game has not consumed it yet and writing into it would
+// destroy unread data. Same for the pointer list: once InBuffers is full the
+// packet could not be published anyway.
+// ---------------------------------------------------------------------------
+static bool CanInject()
+{
+	WinsockInterfaceClass* pW = WinsockInterfaceClass::Instance;
+	if (!pW) return false;
+
+	// StaticInBufferPos is reset while the scenario loads / the interface is
+	// rebuilt; a stale value would make StaticInBuffer[pos] an out-of-bounds
+	// access and crash the game. Guard it.
+	DWORD pos = pW->StaticInBufferPos;
+	if (pos >= 128) return false;
+
+	if (pW->StaticInBuffersInUse >= 128) return false;
+	if (pW->StaticInBuffer[pos].InUse != 0) return false;
+	if (pW->InBuffers.Count >= pW->InBuffers.Capacity) return false;
+	return true;
+}
+
+// ---------------------------------------------------------------------------
+// sendto hook: forward game packets to TCP relay server.
+// Receive-side injection happens in UdpHookDrain(), called from the logic
+// update event (see Mochi.cpp), not from here.
 // ---------------------------------------------------------------------------
 DEFINE_HOOK(0x7C89B0, Hook_SendTo, 6)
 {
@@ -49,10 +75,66 @@ DEFINE_HOOK(0x7C89B0, Hook_SendTo, 6)
 		Network::SendGameData(buf, len);
 	}
 
-	// Drain received packets from TCP relay and inject into game recv queue
-	// (we're on the game thread here, so it's safe to touch game structures)
-	static char recvBuf[1024];
-	while (true) {
+	// Injecting from inside the game's send path crashed the game right after
+	// a packet was sent (out-of-bounds StaticInBufferPos and re-entrancy). The
+	// receive queue is therefore drained only from the logic-update events,
+	// never from here.
+
+	return 0;
+}
+
+// ---------------------------------------------------------------------------
+// Drains the relay receive queue and injects packets into the game's network
+// stack. Called from the logic-update event and from the sendto hook.
+//
+// Why not only from sendto: the game can stop sending for a while (loading,
+// pause, a slow tick, the other side stalling). The queue then kept growing
+// and the next sendto swallowed the whole backlog at once; a 184-packet burst
+// in one tick desynced the game and it crashed / dropped the player.
+//
+// Why budgeted: each call may inject at most 32 packets, so neither a stalled
+// game nor a 200-calls-per-second sendto can hand the game a huge burst.
+// ---------------------------------------------------------------------------
+// Re-entry guard: InjectPacket calls the game's accept filter, which may itself
+// end up sending, and that comes straight back into our sendto hook. Without
+// this flag the drain would recurse into itself.
+static bool g_inDrain = false;
+
+void UdpHookDrain()
+{
+	if (g_inDrain) return;
+	g_inDrain = true;
+
+#ifdef DEBUG_DISPLAY_PACKET
+	// Prove from the log that the logic-update hook really runs, at most one
+	// line per second.
+	{
+		static DWORD lastTickLog = 0;
+		DWORD now = GetTickCount();
+		if (now - lastTickLog >= 1000) {
+			Debug::Log("[TICK] drain running\n");
+			lastTickLog = now;
+		}
+	}
+#endif
+
+	static char recvBuf[2048];
+
+	// Budget per logic tick. The relay peaks around 200 packets/second; at 15
+	// logic fps that is ~14 per tick, so 32 leaves headroom without ever
+	// handing the game a huge burst.
+	int budget = 32;
+	bool more = false;
+
+	while (budget-- > 0) {
+		// Stop before taking a packet off our queue when the game side has no
+		// free slot: an unread packet must never be overwritten, and the data
+		// we already hold is more valuable than one tick of latency.
+		if (!CanInject()) {
+			more = true;
+			break;
+		}
+
 		unsigned int fromId = 0;
 		int n = Network::PollReceivedEx(recvBuf, sizeof(recvBuf), &fromId);
 		if (n <= 0) break;
@@ -66,9 +148,16 @@ DEFINE_HOOK(0x7C89B0, Hook_SendTo, 6)
 			((uint8_t*)recvBuf)[8]);
 #endif
 		InjectPacket(recvBuf, n, fromId);
+		if (budget == 0) more = true;
 	}
 
-	return 0;
+#ifdef DEBUG_DISPLAY_PACKET
+	if (more) {
+		Debug::Log("[INJECT] backlog remains, will continue next tick\n");
+	}
+#endif
+
+	g_inDrain = false;
 }
 
 // ---------------------------------------------------------------------------
@@ -101,7 +190,11 @@ void InjectPacket(const void* data, int len, unsigned int fromId)
 
 	// Get a free slot from StaticInBuffer (ring buffer of 128 pre-allocated slots)
 	DWORD pos = pWinsock->StaticInBufferPos;
+	if (pos >= 128) return;   // stale position after interface rebuild
 	WinsockBufferType* pBuf = &pWinsock->StaticInBuffer[pos];
+
+	// Never write over a slot the game has not consumed yet.
+	if (pBuf->InUse != 0) return;
 
 	// Zero the whole buffer first
 	memset(pBuf, 0, sizeof(WinsockBufferType));
@@ -172,10 +265,14 @@ void InjectPacket(const void* data, int len, unsigned int fromId)
 
 	// Add to InBuffers (DynamicVectorClass<WinsockBufferType*>)
 	auto& inBufs = pWinsock->InBuffers;
-	if (inBufs.Count < inBufs.Capacity) {
-		inBufs.Items[inBufs.Count] = pBuf;
-		inBufs.Count++;
+	if (!inBufs.Items || inBufs.Count < 0 || inBufs.Count >= inBufs.Capacity) {
+		// Cannot publish this packet. Release the slot and leave the ring
+		// position untouched so the next inject retries the same slot.
+		pBuf->InUse = 0;
+		return;
 	}
+	inBufs.Items[inBufs.Count] = pBuf;
+	inBufs.Count++;
 
 	// Advance ring buffer position
 	pWinsock->StaticInBufferPos = (pos + 1) % 128;

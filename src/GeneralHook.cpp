@@ -11,6 +11,7 @@ Event<> GeneralHook::ScenarioStartEvent;
 Event<> GeneralHook::CommandClassRegisterEvent;
 Event<> GeneralHook::ScenarioClearClassesEvent;
 Event<> GeneralHook::LogicClassUpdateEvent;
+Event<> GeneralHook::MessagePumpEvent;
 Event<> GeneralHook::LogicClassUpdateLateEvent;
 Event<> GeneralHook::GScreenClassDrawOnTopEvent;
 
@@ -19,6 +20,7 @@ DEFINE_HOOK(0x4068E0, DebugLog, 0x0) {
 	return 0x4A4AC0;
 }
 
+#ifdef DEBUG_LOG_CONSOLE
 DEFINE_HOOK(0x4A4AF9, DebugLogRet, 1)
 {
 	try {
@@ -33,7 +35,7 @@ DEFINE_HOOK(0x4A4AF9, DebugLogRet, 1)
 	}
 	return 0x4A4E96;
 }
-
+#endif
 
 DEFINE_HOOK(0x7CD810, YRBoot, 0x9)
 {
@@ -93,5 +95,23 @@ DEFINE_HOOK(0x55B719, LogicClass_Update_Late, 0x5) {
 DEFINE_HOOK(0x4F4583, GScreenClass_DrawOnTop_TheDarkSideOfTheMoon, 6)
 {
 	GeneralHook::GScreenClassDrawOnTopEvent.Invoke();
+	return 0;
+}
+
+// The game's own PeekMessage wrapper (0x53E770). Every window message pump in
+// the game goes through it, lobby / game-room / in-match alike, so this is the
+// one place that ticks in all of them. The first two instructions are
+// "sub esp,0x34" (3 bytes) and "mov eax,[0xAA0444]" (5 bytes); 8 bytes covers
+// both without splitting an instruction. ECX/EDX carry live arguments into the
+// body, so they are preserved around the call.
+DEFINE_HOOK(0x53E770, MessagePump, 8)
+{
+	__asm push eax
+	__asm push ecx
+	__asm push edx
+	GeneralHook::MessagePumpEvent.Invoke();
+	__asm pop edx
+	__asm pop ecx
+	__asm pop eax
 	return 0;
 }

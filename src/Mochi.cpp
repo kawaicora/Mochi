@@ -24,6 +24,8 @@ public:
 	static bool Init(const char* host, unsigned short port);
 	static void Shutdown();
 };
+// Same reason: UdpHook.h pulls in winsock2.h, so declare the entry point here.
+void UdpHookDrain();
 #include <MochiINI.h>
 #endif
 HANDLE Mochi::hInstance = 0;
@@ -258,6 +260,13 @@ void Mochi::RegisterEvent() {
 
 
 	GeneralHook::GScreenClassDrawOnTopEvent.Subscribe([]() {
+#ifdef ENABLE_EXT_NETWORK
+		// Injection point that actually runs: the logic-update hooks are not
+		// reached in this build, and this draw hook fires every frame both in
+		// the lobby and in game. Rendering never touches the network stack, so
+		// handing packets over here is safe.
+		UdpHookDrain();
+#endif
 		bool isDrawHouseInfo =
 			MochiINI::PlayerBaseConfig->GetValueByKey<bool>(
 				"IsDrawHouseInfo", true);
@@ -276,8 +285,23 @@ void Mochi::RegisterEvent() {
 		
 	});
 
-	GeneralHook::LogicClassUpdateEvent.Subscribe([]() {
+	GeneralHook::MessagePumpEvent.Subscribe([]() {
+#ifdef ENABLE_EXT_NETWORK
+		// Runs on the game thread inside the window message pump, which is the
+		// only loop active in the lobby / game-room screens as well as in a
+		// match, so relayed packets keep flowing in every phase.
+		UdpHookDrain();
+#endif
+	});
 
+	GeneralHook::LogicClassUpdateEvent.Subscribe([]() {
+#ifdef ENABLE_EXT_NETWORK
+		// Inject relay packets on the game thread, once per logic frame, with a
+		// per-frame budget. Draining from the sendto hook instead caused the
+		// whole queue to be swallowed in one tick whenever the game paused
+		// sending, and that burst crashed the client.
+		UdpHookDrain();
+#endif
 	});
 
 #ifdef ENABLE_EXT_NETWORK
@@ -287,6 +311,10 @@ void Mochi::RegisterEvent() {
 #endif
 
 	GeneralHook::LogicClassUpdateLateEvent.Subscribe([]() {
+#ifdef ENABLE_EXT_NETWORK
+		// Second injection point: late in the frame, after the logic has run.
+		UdpHookDrain();
+#endif
 		bool isAutoChargePlayerAllSuperweapon =
 			MochiINI::PlayerBaseConfig->GetValueByKey<bool>(
 				"IsAutoChargePlayerAllSuperweapon", true);

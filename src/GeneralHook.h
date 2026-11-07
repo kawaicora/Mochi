@@ -15,6 +15,7 @@ public:
 	static Event<> ScenarioClearClassesEvent;
 	static Event<> LogicClassUpdateEvent;
 	static Event<> LogicClassUpdateLateEvent;
+	static Event<> MessagePumpEvent;
 	static Event<> GScreenClassDrawOnTopEvent;
 	static Event<GeneralHook::CmdLineArgs> CmdLineParseEvent;
 	static Event<const char*, va_list> DebugLogEvent;
