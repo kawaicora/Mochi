@@ -155,8 +155,7 @@ void Mochi::RegisterEvent() {
 		Debug::Log("ExtNetwork: %s:%d\n", host.c_str(), port);
 		Network::Init(host.c_str(), port);
 
-		// Patch the game's own disconnect verdicts. Never called before, which
-		// is why the relay worked but the session still dropped after a while.
+		//
 		UdpHookInit();
 #endif
 

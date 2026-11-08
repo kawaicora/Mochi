@@ -228,8 +228,31 @@ int InjectPacket(const void* data, int len, unsigned int fromId)
 	WinsockInterfaceClass* pWinsock = WinsockInterfaceClass::Instance;
 	if (!pWinsock) return 1;
 
-	// Need at least 4 bytes sub-header + some payload
-	if (len < 20) return 1;
+	// Relay payload is exactly what the game handed to sendto: the 16-byte relay
+	// header was already consumed by Network::PollReceivedEx.
+	//
+	// IPX data packets are 20+ bytes, but the transport ACK is only 14 bytes
+	// (sub_48C040 builds it with a length of 14: word port-id, byte type=2,
+	// dword packet-id, plus 6 bytes of header). The old "len < 20" gate dropped
+	// every ACK on arrival, so the send queue was never acknowledged and the
+	// game declared the opponent dead after a short while - while data packets
+	// flowed fine, which is why the match itself looked healthy.
+	// Accept anything that still holds the 4 bytes we split off plus a usable
+	// header; the game's own accept filter runs below and rejects real junk.
+	if (len < 8) return 1;
+
+	// Visibility for the short-packet path: the transport ACK is 14 bytes (the
+	// word at Buffer+0 is the port-id, byte at Buffer+2 is type 2). One line
+	// every 2 seconds is enough to tell whether ACKs now reach the game.
+	if (len <= 16) {
+		static DWORD s_lastShortLog = 0;
+		DWORD now = GetTickCount();
+		if (now - s_lastShortLog >= 2000) {
+			s_lastShortLog = now;
+			Debug::Log("[ACK-IN] short packet len=%d type=%02X from=%u\n",
+				len, (len > 6) ? ((const uint8_t*)data)[6] : 0, fromId);
+		}
+	}
 
 	// Take a receive buffer from the game exactly the way its own recv path does
 	// (sub_7B2240): it walks StaticInBuffer for a free slot, advances
@@ -330,16 +353,6 @@ int InjectPacket(const void* data, int len, unsigned int fromId)
 // ---------------------------------------------------------------------------
 // UdpHookInit: subscribe to events, set up hooks
 // ---------------------------------------------------------------------------
-// ---------------------------------------------------------------------------
-// ConnectionClass::Service_Send_Queue (0x48C3E0) hard-fails a player on two
-// counts: retry count above the configured limit, or no packet heard from the
-// peer for longer than the configured window. Both set the failure bit and the
-// verdict flag, and from then on 0x541820 reports
-//   "Error - Connection %d has gone bad"
-// and the session ends. Under the relay those two clocks measure TCP relay
-// jitter, not a dead peer, so the verdicts are disabled. Only the verdicts are
-// patched; sending, ordering and everything else in the function stays intact.
-// ---------------------------------------------------------------------------
 static void NopCode(DWORD address, int length)
 {
 	DWORD oldProtect = 0;
@@ -367,8 +380,7 @@ void UdpHookInit()
 	//          probe fails, which makes the whole networking service report a
 	//          dead session.
 	// 0x54221B  mov [esp+0x24], ebp   same, for the third socket.
-	// Leaving v55 at 1 means Service keeps returning "healthy", so the upper
-	// layers never mark the opponent defeated / fire REMOVEPLAYER.
+
 	NopCode(0x5421DE, 4);
 	NopCode(0x54221B, 4);
 
