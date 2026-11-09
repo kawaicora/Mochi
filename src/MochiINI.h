@@ -53,6 +53,14 @@ public:
         const char* filename,
         const char* searchPaths[] = nullptr);
     void Clear();
+
+    //***********************Ares style [#include] ***********************
+    // Applies the [#include] section of an engine INIClass (called from
+    // INIHook). Files are read after the owner file, so an included file
+    // overrides the file that included it, exactly like Ares does.
+    static void ProcessIncludes(INIClass* pINI);
+    static void ResetIncludeCache();
+    //***********************Ares style [#include] ***********************
     static std::vector<std::string>
         Split(
             const std::string& src,
@@ -66,6 +74,16 @@ public:
         bool createDirectories = true) const;
 
 private:
+
+    // Parses one file into the current Sections and then follows its
+    // [#include] section. depth guards against pathological nesting.
+    bool LoadFileInto(
+        const std::filesystem::path& full,
+        const std::vector<std::filesystem::path>& searchPaths,
+        int depth);
+
+    static std::vector<std::string> TextIncludeStack;
+    static std::vector<std::string> EngineIncludeCache;
 
     static bool IsNumber(const std::string& s);
     static std::string ToLower(std::string s);

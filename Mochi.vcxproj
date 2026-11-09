@@ -28,6 +28,7 @@
     <ClCompile Include="src\MochiGame.h" />
     <ClCompile Include="src\Mochi.cpp" />
     <ClCompile Include="src\MochiHouse.cpp" />
+    <ClCompile Include="src\INIHook.cpp" />
     <ClCompile Include="src\MochiINI.cpp" />
     <ClCompile Include="src\MochiMap.cpp" />
     <ClCompile Include="src\MochiGraph.cpp" />
@@ -56,6 +57,7 @@
     <ClInclude Include="src\MochiEvent.h" />
     <ClInclude Include="src\MochiFactory.h" />
     <ClInclude Include="src\MochiHouse.h" />
+    <ClInclude Include="src\INIHook.h" />
     <ClInclude Include="src\MochiINI.h" />
     <ClInclude Include="src\MochiMap.h" />
     <ClInclude Include="src\MochiGraph.h" />

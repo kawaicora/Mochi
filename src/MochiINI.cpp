@@ -1,4 +1,5 @@
 ﻿#include "MochiINI.h"
+#include "Debug.h"
 MochiINI MochiINI::INIReader;
 MochiINI::Section* MochiINI::PlayerBaseConfig;
 //***********************RA2 INIClass ***********************
@@ -41,6 +42,9 @@ const MochiINI::Section* MochiINI::GetSection(const std::string& section) const
 
     return &it->second;
 }
+
+std::vector<std::string> MochiINI::TextIncludeStack;
+std::vector<std::string> MochiINI::EngineIncludeCache;
 
 bool MochiINI::LoadINI(
     const char* filename,
@@ -97,6 +101,25 @@ bool MochiINI::LoadINI(
             return false;
         }
     }
+
+    //
+    // 一次顶层加载 = 一次 include 去重表
+    //
+    TextIncludeStack.clear();
+
+    TextIncludeStack.push_back(
+        ToLower(foundPath.string()));
+
+    return LoadFileInto(foundPath, paths, 0);
+}
+
+bool MochiINI::LoadFileInto(
+    const std::filesystem::path& foundPath,
+    const std::vector<std::filesystem::path>& searchPaths,
+    int depth)
+{
+    if (depth > 8)
+        return false;
 
     std::ifstream file(foundPath);
 
@@ -211,7 +234,173 @@ bool MochiINI::LoadINI(
         sec.Keys[key] = std::move(v);
     }
 
+    file.close();
+
+    //
+    // Ares 风格 [#include]
+    //
+    const Section* includeSection = GetSection("#include");
+
+    if (includeSection && !includeSection->Keys.empty())
+    {
+        //
+        // 按数字 key 顺序加载
+        //
+        std::vector<std::pair<int, std::string>> entries;
+
+        int fallbackIndex = 0x7FFFFFFF;
+
+        for (auto& kv : includeSection->Keys)
+        {
+            int idx = IsNumber(kv.first)
+                ? atoi(kv.first.c_str())
+                : fallbackIndex++;
+
+            if (!kv.second.Array.empty())
+            {
+                for (auto& one : kv.second.Array)
+                {
+                    entries.emplace_back(idx, one);
+                }
+            }
+            else if (!kv.second.Raw.empty())
+            {
+                entries.emplace_back(idx, kv.second.Raw);
+            }
+        }
+
+        std::stable_sort(
+            entries.begin(),
+            entries.end(),
+            [](const std::pair<int, std::string>& a,
+               const std::pair<int, std::string>& b)
+            {
+                return a.first < b.first;
+            });
+
+        for (auto& entry : entries)
+        {
+            std::filesystem::path incPath(entry.second);
+
+            if (incPath.is_relative())
+                incPath = foundPath.parent_path() / incPath;
+
+            if (!std::filesystem::exists(incPath))
+            {
+                //
+                // 再按搜索路径找一遍
+                //
+                for (auto& p : searchPaths)
+                {
+                    auto candidate = p / entry.second;
+
+                    if (std::filesystem::exists(candidate))
+                    {
+                        incPath = candidate;
+                        break;
+                    }
+                }
+            }
+
+            if (!std::filesystem::exists(incPath))
+                continue;
+
+            std::string key = ToLower(incPath.string());
+
+            bool already = false;
+
+            for (auto& loaded : TextIncludeStack)
+            {
+                if (loaded == key)
+                {
+                    already = true;
+                    break;
+                }
+            }
+
+            if (already)
+                continue;
+
+            TextIncludeStack.push_back(key);
+
+            LoadFileInto(incPath, searchPaths, depth + 1);
+        }
+    }
+
     return true;
+}
+
+//
+// 引擎侧 [#include]：由 INIHook 在 CCINIClass::ReadCCFile 返回前调用
+//
+void MochiINI::ProcessIncludes(INIClass* pINI)
+{
+    if (!pINI)
+        return;
+
+    const char* section = "#include";
+
+    int count = pINI->GetKeyCount(section);
+
+    for (int i = 0; i < count; ++i)
+    {
+        const char* key = pINI->GetKeyName(section, i);
+
+        if (!key)
+            continue;
+
+        char buffer[0x100] = {};
+
+        if (pINI->ReadString(
+                section,
+                key,
+                "",
+                buffer,
+                sizeof(buffer)) <= 0)
+        {
+            continue;
+        }
+
+        std::string name = Trim(buffer);
+
+        if (name.empty())
+            continue;
+
+        std::string lower = ToLower(name);
+
+        bool already = false;
+
+        for (auto& loaded : EngineIncludeCache)
+        {
+            if (loaded == lower)
+            {
+                already = true;
+                break;
+            }
+        }
+
+        if (already)
+            continue;
+
+        CCFileClass file(name.c_str());
+
+        if (!file.Exists())
+        {
+            Debug::Log(
+                "[MochiINI] include not found: %s\n",
+                name.c_str());
+            continue;
+        }
+
+        EngineIncludeCache.push_back(lower);
+
+        static_cast<CCINIClass*>(pINI)->ReadCCFile(&file);
+    }
+}
+
+void MochiINI::ResetIncludeCache()
+{
+    EngineIncludeCache.clear();
 }
 
 void MochiINI::Clear()
