@@ -17,6 +17,7 @@
     <ClCompile Include="src\EventSystem.cpp" />
     <ClCompile Include="src\FactoryHook.cpp" />
     <ClCompile Include="src\MochiRadar.cpp" />
+    <ClCompile Include="src\MovieHook.cpp" />
     <ClCompile Include="src\RadarHook.cpp" />
     <ClCompile Include="src\GeneralHook.cpp" />
     <ClCompile Include="src\HouseHook.cpp" />
@@ -48,6 +49,7 @@
     <ClInclude Include="src\EventSystem.h" />
     <ClInclude Include="src\FactoryHook.h" />
     <ClInclude Include="src\MochiRadar.h" />
+    <ClInclude Include="src\MovieHook.h" />
     <ClInclude Include="src\RadarHook.h" />
     <ClInclude Include="src\GeneralHook.h" />
     <ClInclude Include="src\HouseHook.h" />

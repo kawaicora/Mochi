@@ -15,6 +15,7 @@
 #include <EventHook.h>
 #include <SurfaceDebug.h>
 #include <MochiNetwork.h>
+#include <MovieHook.h>
 #include <iostream>
 
 #ifdef ENABLE_EXT_NETWORK
@@ -268,6 +269,37 @@ void Mochi::RegisterEvent() {
 		MochiEvent::SendUnlockAllTechEvent(HouseClass::CurrentPlayer, isUnlockAllTech);
 
 	});
+	// 电影播放（全屏过场与雷达视频共用一套 hook）
+	// 字幕需要实时播放时间时，订阅 MovieTimeEvent 读 info.CurrentTimeMs 即可。
+	MovieHook::MovieStartEvent.Subscribe([](const MovieHook::MovieInfo& info) {
+		Debug::Log("[Movie] start: %dx%d, %d frames, %d fps, duration=%dms\n",
+			info.Width, info.Height, info.TotalFrames, info.Fps, info.DurationMs);
+	});
+	MovieHook::MovieTimeEvent.Subscribe([](const MovieHook::MovieInfo& info) {
+		// 示例只按整秒打点，避免每帧刷日志；做字幕时直接用 CurrentTimeMs
+		static void* s_lastAnim = nullptr;
+		static int s_lastSecond = -1;
+		int second = info.CurrentTimeMs / 1000;
+		if (s_lastAnim != info.pAnim || s_lastSecond != second) {
+			s_lastAnim = info.pAnim;
+			s_lastSecond = second;
+			Debug::Log("[Movie] time: frame %d/%d = %dms\n",
+				info.CurrentFrame, info.TotalFrames, info.CurrentTimeMs);
+		}
+	});
+	MovieHook::MovieEndEvent.Subscribe([](const MovieHook::MovieInfo& info) {
+		Debug::Log("[Movie] end: frame %d/%d = %dms\n",
+			info.CurrentFrame, info.TotalFrames, info.CurrentTimeMs);
+	});
+	MovieHook::MoviePauseEvent.Subscribe([](const MovieHook::MovieInfo& info) {
+		Debug::Log("[Movie] paused at %dms (frame %d)\n",
+			info.CurrentTimeMs, info.CurrentFrame);
+	});
+	MovieHook::MovieResumeEvent.Subscribe([](const MovieHook::MovieInfo& info) {
+		Debug::Log("[Movie] resumed at %dms (frame %d)\n",
+			info.CurrentTimeMs, info.CurrentFrame);
+	});
+
 	GeneralHook::LogicClassInitEvent.Subscribe([]() {
 		Debug::Log("Logic Class Initialized\n");
 	});
