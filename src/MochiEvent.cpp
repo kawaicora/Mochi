@@ -286,7 +286,6 @@ void MochiEvent::CoraMessage(EventData* data)
 		
 		wchar_t buf[1024];
 		swprintf(buf, L"%ls 说: %ls", name, g_msgBuffer.data());
-		Debug::LogW(buf);
 		MessageListClass::Instance.AddMessage(L"*聊天消息*", 0, buf,ColorScheme::Red,TextPrintType::Center,3 * FPSCounter::CurrentFrameRate,false);
 		// 清空，准备下一条消息
 		g_msgBuffer.clear();

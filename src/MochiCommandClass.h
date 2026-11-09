@@ -3,6 +3,7 @@
 #include <YRPP.h>
 #include <MochiGame.h>
 #include <RadarHook.h>
+#include <MochiRadar.h>
 
 //需要启动时修复
 class AIControlCommandClass: public CommandClass
@@ -642,6 +643,7 @@ public:
 	{
 
 		MochiGame::SendMessageEx((wchar_t*)L"你好 我的朋友 你太棒了", false);
+		MochiRadar::PlayMovieInSidebar("PRE.BIK",true);
 		return;
 	}
 };
