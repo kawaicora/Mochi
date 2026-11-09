@@ -7,6 +7,7 @@ Event<GeneralHook::CmdLineArgs> GeneralHook::CmdLineParseEvent;
 Event<const char*, va_list> GeneralHook::DebugLogEvent;
 Event<> GeneralHook::ExeTerminateEvent;
 Event<> GeneralHook::LogicClassInitEvent;
+Event<> GeneralHook::ScenarioStartReadSceneINIEvent;
 Event<> GeneralHook::ScenarioStartEvent;
 Event<> GeneralHook::CommandClassRegisterEvent;
 Event<> GeneralHook::ScenarioClearClassesEvent;
@@ -68,7 +69,14 @@ DEFINE_HOOK(0x7CD8EF, ExeTerminate, 9) {
 	return 0;
 }
 
-DEFINE_HOOK(0x6875F3, Scenario_Start, 6) {
+DEFINE_HOOK(0x6875F3, Scenario_Start_Read_Scene_INI, 6) {
+	GeneralHook::ScenarioStartReadSceneINIEvent.Invoke();
+	return  0;
+}
+
+// 游戏真正开始的时刻：0x689E90 尾部把 CurrentPlayer->IsHumanPlayer / IsInPlayerControl
+// 强行置 1 之后，这里（cmp [0xA8B238], esi / 6 字节）才是房子与控制权定稿的点。
+DEFINE_HOOK(0x687868, Scenario_Start, 6) {
 	GeneralHook::ScenarioStartEvent.Invoke();
 	return  0;
 }
