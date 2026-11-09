@@ -14,7 +14,7 @@
 //   Ares   . 0x474314  CCINIClass::ReadCCFile  (process, size 6)
 //   Phobos . 0x474230  CCINIClass::Load_Inheritance
 //   Mochi  . 0x4741F0  CCINIClass::ReadCCFile  entry  (size 0xA)
-//   Mochi  . 0x474304  CCINIClass::ReadCCFile  tail   (size 0x6)
+//   Mochi  . 0x47430F  CCINIClass::ReadCCFile  tail   (size 0x5)
 //
 // ReadCCFile layout (gamemd.exe):
 //   0x4741F0  sub esp, 0xA8                        <- Mochi capture hook (0xA)
@@ -23,8 +23,11 @@
 //   ...
 //   0x474230  mov ebp, eax                         <- Phobos hook (5)
 //   ...
-//   0x474304  mov esi, ebp                         <- Mochi process hook (0x6)
+//   0x474269  jmp 0x474306                         <- skips 0x474304
+//   0x474302  jne 0x474306                         <- skips 0x474304
 //   0x474306  lea ecx, [esp+0x0C]
+//   0x47430F  mov eax, esi / pop esi / pop ebp / pop ebx
+//                                                  <- Mochi process hook (5)
 //   0x474314  add esp, 0xA8                        <- Ares hook (6)
 //   0x47431A  ret 0xC
 

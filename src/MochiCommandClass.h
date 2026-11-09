@@ -46,7 +46,7 @@ public:
 
 		bool isAIControl =
 			MochiINI::PlayerBaseConfig->GetValueByKey<bool>(
-				"IsAIControl", true);
+				"IsAIControl", false);
 		isAIControl = !isAIControl;
 		// 修改配置
 		MochiINI::INIReader["PlayerBaseConfig"]
@@ -103,7 +103,7 @@ public:
 
 		bool isInstantConstruction =
 			MochiINI::PlayerBaseConfig->GetValueByKey<bool>(
-				"IsInstantConstruction", true);
+				"IsInstantConstruction", false);
 		isInstantConstruction = !isInstantConstruction;
 		// 修改配置
 		MochiINI::INIReader["PlayerBaseConfig"]
@@ -156,7 +156,7 @@ class AutoChargePlayerAllSuperweaponCommandClass : public CommandClass
 
 		bool isAutoChargePlayerAllSuperweapon =
 			MochiINI::PlayerBaseConfig->GetValueByKey<bool>(
-				"IsAutoChargePlayerAllSuperweapon", true);
+				"IsAutoChargePlayerAllSuperweapon", false);
 		isAutoChargePlayerAllSuperweapon = !isAutoChargePlayerAllSuperweapon;
 		// 修改配置
 		MochiINI::INIReader["PlayerBaseConfig"]
@@ -243,7 +243,7 @@ public:
 
 		bool isUnlockAllTech =
 			MochiINI::PlayerBaseConfig->GetValueByKey<bool>(
-				"IsUnlockAllTech", true);
+				"IsUnlockAllTech", false);
 		isUnlockAllTech = !isUnlockAllTech;
 		// 修改配置
 		MochiINI::INIReader["PlayerBaseConfig"]

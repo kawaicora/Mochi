@@ -9,6 +9,7 @@ public:
 	};
 	static Event<> YRBootEvent;
 	static Event<> ExeTerminateEvent;
+	static Event<> ScenarioStartReadSceneINIEvent;
 	static Event<> ScenarioStartEvent;
 	static Event<> CommandClassRegisterEvent;
 	static Event<> LogicClassInitEvent;

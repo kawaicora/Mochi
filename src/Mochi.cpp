@@ -224,8 +224,24 @@ void Mochi::RegisterEvent() {
 
 	});
 	
-	GeneralHook::ScenarioStartEvent.Subscribe([]() {
+	GeneralHook::ScenarioStartReadSceneINIEvent.Subscribe([]() {
 		Debug::Log("Scenario Started\n");
+
+		// rules INI 已完整读取并解析：打印 [General] MochiLoadLog 里存的字符串。
+		// 例：MochiLoadLog=MOCHI加载游戏RULES_INI完成
+		// 只打印一次，避免每局都刷一行。
+		static bool s_RulesLoadLogPrinted = false;
+		if (!s_RulesLoadLogPrinted) {
+			if (CCINIClass* pRules = CCINIClass::INI_Rules) {
+				char buffer[0x200] = {};
+				if (pRules->ReadString("General", "MochiLoadLog", "", buffer, sizeof(buffer)) > 0
+					&& buffer[0]) {
+					Debug::Log("[INI] [General] MochiLoadLog = %s\n", buffer);
+					s_RulesLoadLogPrinted = true;
+				}
+			}
+		}
+
 		//p = SurfaceDebug::CreateSurfaceWindow(DSurface::Sidebar, L"Sidebar",false);
 		//SurfaceDebug::CreateSurfaceWindow(DSurface::Hidden, L"Hidden", true);
 		//SurfaceDebug::CreateSurfaceWindow(DSurface::Primary, L"Primary", true);
@@ -235,15 +251,22 @@ void Mochi::RegisterEvent() {
 		//SurfaceDebug::CreateSurfaceWindow(DSurface::Composite, L"Composite", true);
 		//MochiGame::PlayMovie("V_001");
 
+	});
+
+	// 游戏真正开始（0x687868）：0x689E90 已经把 CurrentPlayer 的
+	// IsHumanPlayer / IsInPlayerControl 置 1，这里再按 mochi.ini 覆盖才不会被冲掉。
+	GeneralHook::ScenarioStartEvent.Subscribe([]() {
+		Debug::Log("Scenario Started (game really starting)\n");
+
 		bool isAIControl =
 			MochiINI::PlayerBaseConfig->GetValueByKey<bool>(
-				"IsAIControl", true);
+				"IsAIControl", false);
 		MochiGame::SetCurrentPlayerAIControl(isAIControl);
 		bool isUnlockAllTech =
 			MochiINI::PlayerBaseConfig->GetValueByKey<bool>(
-				"IsUnlockAllTech", true);
+				"IsUnlockAllTech", false);
 		MochiEvent::SendUnlockAllTechEvent(HouseClass::CurrentPlayer, isUnlockAllTech);
-		
+
 	});
 	GeneralHook::LogicClassInitEvent.Subscribe([]() {
 		Debug::Log("Logic Class Initialized\n");
