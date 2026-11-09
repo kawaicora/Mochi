@@ -333,12 +333,26 @@ bool MochiINI::LoadFileInto(
 //
 // 引擎侧 [#include]：由 INIHook 在 CCINIClass::ReadCCFile 返回前调用
 //
+// A hard depth ceiling backs up the name cache: if the cache is ever defeated
+// (different spellings, relative paths, an include that grows its own key list),
+// we bail out instead of eating the 1 MB game stack (C00000FD).
 void MochiINI::ProcessIncludes(INIClass* pINI)
 {
     if (!pINI)
         return;
 
+    static int s_includeDepth = 0;
+
+    if (s_includeDepth >= 16)
+    {
+        Debug::Log("[MochiINI] include depth limit reached, skipped\n");
+        return;
+    }
+
+    ++s_includeDepth;
+
     const char* section = "#include";
+
 
     int count = pINI->GetKeyCount(section);
 
@@ -396,6 +410,8 @@ void MochiINI::ProcessIncludes(INIClass* pINI)
 
         static_cast<CCINIClass*>(pINI)->ReadCCFile(&file);
     }
+
+    --s_includeDepth;
 }
 
 void MochiINI::ResetIncludeCache()

@@ -70,7 +70,12 @@ void INIHook::Flush()
 		s_processingIncludes = false;
 	}
 
-	if (s_depth == 0)
+	// Only a real root load ends the include session. While ProcessIncludes is
+	// on the stack, s_depth also returns to 0 on every nested ReadCCFile return;
+	// clearing the cache there wipes the dedupe list mid-recursion, so a cyclic
+	// [#include] (or an include that re-adds keys) re-enters forever and blows
+	// the 1 MB stack (C00000FD).
+	if (s_depth == 0 && !s_processingIncludes)
 	{
 		MochiINI::ResetIncludeCache();
 	}
