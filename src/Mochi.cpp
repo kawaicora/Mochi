@@ -236,7 +236,7 @@ void Mochi::RegisterEvent() {
 				char buffer[0x200] = {};
 				if (pRules->ReadString("General", "MochiLoadLog", "", buffer, sizeof(buffer)) > 0
 					&& buffer[0]) {
-					Debug::Log("[INI] [General] MochiLoadLog = %s\n", buffer);
+					Debug::Log("%s\n", buffer);
 					s_RulesLoadLogPrinted = true;
 				}
 			}
