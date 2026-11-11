@@ -284,6 +284,13 @@ void MochiGame::PlayMovie(const char* fileName,
 
 
 void MochiGame::SetCurrentPlayerAIControl(bool bCurrentPlayIsAIControl) { //true 
+
+	if (SessionClass::Instance.GameMode == GameMode::LAN || SessionClass::Instance.GameMode == GameMode::Internet) {
+		MessageListClass::Instance.AddMessage(L"", 0, L"无法联机模式开启AI控制", ColorScheme::Red, TextPrintType::Center, 3 * FPSCounter::CurrentFrameRate, false);
+		return;
+	}
+
+
 	HouseClass* pHouse = HouseClass::CurrentPlayer;
 	pHouse->IsHumanPlayer = pHouse->IsInPlayerControl = !bCurrentPlayIsAIControl; //两个标志一起翻，AI 判断两端一致
 	if (!pHouse->IsHumanPlayer) {  //true 

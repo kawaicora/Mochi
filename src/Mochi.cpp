@@ -17,7 +17,6 @@
 #include <MochiNetwork.h>
 #include <MovieHook.h>
 #include <iostream>
-
 #ifdef ENABLE_EXT_NETWORK
 // Forward declaration - Network.h includes winsock2.h which conflicts with windows.h
 class Network {
@@ -28,7 +27,6 @@ public:
 // Same reason: UdpHook.h pulls in winsock2.h, so declare the entry points here.
 void UdpHookDrain();
 void UdpHookInit();
-#include <MochiINI.h>
 #endif
 HANDLE Mochi::hInstance = 0;
 bool Mochi::isRegistered = false;
@@ -261,10 +259,6 @@ void Mochi::RegisterEvent() {
 	GeneralHook::ScenarioStartEvent.Subscribe([]() {
 		Debug::Log("Scenario Started (game really starting)\n");
 
-		
-		if (SessionClass::Instance.GameMode == GameMode::LAN || SessionClass::Instance.GameMode == GameMode::Internet) {
-			MochiINI::INIReader["PlayerBaseConfig"]["IsAIControl"].Raw = "false";
-		}
 		bool isAIControl =
 			MochiINI::PlayerBaseConfig->GetValueByKey<bool>(
 				"IsAIControl", false);
