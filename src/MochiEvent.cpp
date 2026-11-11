@@ -219,6 +219,7 @@ void MochiEvent::SendAIControlEvent(HouseClass* pHouse, bool isAIControl) {
 	event->Frame = Unsorted::CurrentFrame;
 	event->Type = (EventType)MochiEventType::CoraAIControl;
 	event->HouseIndex = pHouse->ArrayIndex;
+	event->AIControl.isAIControl = isAIControl;
 	event->AddEvent();
 }
 //*******************************事件工具方法******************************//
