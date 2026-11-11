@@ -261,10 +261,16 @@ void Mochi::RegisterEvent() {
 	GeneralHook::ScenarioStartEvent.Subscribe([]() {
 		Debug::Log("Scenario Started (game really starting)\n");
 
+		
+		if (SessionClass::Instance.GameMode == GameMode::LAN || SessionClass::Instance.GameMode == GameMode::Internet) {
+			MochiINI::INIReader["PlayerBaseConfig"]["IsAIControl"].Raw = "false";
+		}
 		bool isAIControl =
 			MochiINI::PlayerBaseConfig->GetValueByKey<bool>(
 				"IsAIControl", false);
 		MochiGame::SetCurrentPlayerAIControl(isAIControl);
+
+
 		bool isUnlockAllTech =
 			MochiINI::PlayerBaseConfig->GetValueByKey<bool>(
 				"IsUnlockAllTech", false);

@@ -594,11 +594,6 @@ void MochiEvent::OnEventReceived(EventData* data) {
 				MochiEvent::CoraUnlockAllTech(data);
 				break;
 			}
-			case (EventType)MochiEventType::CoraAIControl: 
-			{
-				MochiEvent::CoraAIControl(data);
-				break;
-			}
 			case (EventType)MochiEventType::CoraMessage:
 			{
 				MochiEvent::CoraMessage(data);
