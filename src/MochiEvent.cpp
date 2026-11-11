@@ -598,12 +598,7 @@ void MochiEvent::OriginalMegaMissionFEvent(EventData* data) //带运动学参数
 
 
 
-//******************************帧排期******************************//
-static std::vector<EventData> Mochi_PendingEvents;
-
-//只有 Mochi 自定义事件（0x70~0x8F）在发送时打了 Frame = CurrentFrame + K，
-//所以也只有它们需要延后到帧号再执行；引擎原生事件仍走原版 DoList 的帧门控
-
+//******************************收到网络事件******************************//
 void MochiEvent::OnEventReceived(EventData* data) {
 	switch (data->Type) {
 
