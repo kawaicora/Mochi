@@ -20,6 +20,7 @@ public:
 	static void SendPlaceEvent(HouseClass* pHouse,TechnoTypeClass* pTechnoTypeClass);
 	static void SendActiveSuperWeaponEvent(HouseClass* pHouse,int houseSupersIndex);
 	static void SendAIControlEvent(HouseClass* pHouse, bool isAIControl);
+	static void OnEventReceived(EventData* data);
 	//*******************************事件处理函数******************************//
 
 	static void CoraMoneyChange(EventData* data);

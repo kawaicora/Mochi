@@ -5,6 +5,7 @@
 #include <MochiTechno.h>
 #include <MochiFactory.h>
 #include <MochiMegaMission.h>
+#include <MochiINI.h>
 #include <unordered_set>
 //******************************事件发送函数******************************//
 
@@ -594,3 +595,99 @@ void MochiEvent::OriginalMegaMissionFEvent(EventData* data) //带运动学参数
 	MochiMegaMission::ShowMegaMissionFInfo(data);
 	
 };
+
+
+
+//******************************帧排期******************************//
+static std::vector<EventData> Mochi_PendingEvents;
+
+//只有 Mochi 自定义事件（0x70~0x8F）在发送时打了 Frame = CurrentFrame + K，
+//所以也只有它们需要延后到帧号再执行；引擎原生事件仍走原版 DoList 的帧门控
+
+void MochiEvent::OnEventReceived(EventData* data) {
+	switch (data->Type) {
+
+			//****Mochi事件处理****//
+			case (EventType)MochiEventType::CoraMoneyChange:
+			{
+				MochiEvent::CoraMoneyChange(data);
+				break;
+			}
+			case (EventType)MochiEventType::CoraCompleteProduction:
+			{
+
+				MochiEvent::CoraCompleteProduction(data);
+				break;
+			}
+			case (EventType)MochiEventType::CoraSuperWeaponCharge:
+			{
+				MochiEvent::CoraSuperWeaponCharge(data);
+				break;
+			}
+			case (EventType)MochiEventType::CoraSpecialPlace:
+			{
+				MochiEvent::CoraSpecialPlace(data);
+				break;
+			}
+			case (EventType)MochiEventType::CoraActiveSuperWeapon:
+			{
+				MochiEvent::CoraActiveSuperWeapon(data);
+				break;
+			}
+			case (EventType)MochiEventType::CoraPlace:
+			{
+				MochiEvent::CoraPlace(data);
+				break;
+			}
+
+			case (EventType)MochiEventType::CoraUnlockAllTech:
+			{
+				MochiEvent::CoraUnlockAllTech(data);
+				break;
+			}
+			case (EventType)MochiEventType::CoraAIControl: 
+			{
+				MochiEvent::CoraAIControl(data);
+				break;
+			}
+			case (EventType)MochiEventType::CoraMessage:
+			{
+				MochiEvent::CoraMessage(data);
+				break;
+			}
+			//****原有事件处理****//
+			case EventType::FrameSync:
+			{
+				MochiEvent::OriginalFrameSyncEvent(data);
+				break;
+			}
+			case EventType::FrameInfo:
+			{
+				MochiEvent::OriginalFrameInfoEvent(data);
+				break;
+			}
+			case EventType::Place:
+			{
+				MochiEvent::OriginalPlaceEvent(data);
+				break;
+			}
+
+			case EventType::Produce:
+			{
+				MochiEvent::OriginalProduceEvent(data);
+				break;
+			}
+
+
+			case EventType::MegaMission:
+			{
+				MochiEvent::OriginalMegaMissionEvent(data);
+				break;
+			}
+			case EventType::MegaMissionF:
+			{
+				MochiEvent::OriginalMegaMissionFEvent(data);
+				break;
+			}
+	}//switch (data->Type)
+}

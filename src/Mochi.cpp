@@ -415,90 +415,11 @@ void Mochi::RegisterEvent() {
 
 	EventHook::NetworkingRespondToEvent.Subscribe([](EventData* data) {
 		Debug::Log("Receive Event Type: 0x%02X HouseIndex: %d Frame: %d\n", (int)data->Type, data->HouseIndex, data->Frame);
-		switch (data->Type) {
-			//****Mochi事件处理****//
-			case (EventType)MochiEventType::CoraMoneyChange:
-			{
-				MochiEvent::CoraMoneyChange(data);
-				break;
-			}
-			case (EventType)MochiEventType::CoraCompleteProduction:
-			{
+		MochiEvent::OnEventReceived(data);
+	});
 
-				MochiEvent::CoraCompleteProduction(data);
-				break;
-			}
-			case (EventType)MochiEventType::CoraSuperWeaponCharge:
-			{
-				MochiEvent::CoraSuperWeaponCharge(data);
-				break;
-			}
-			case (EventType)MochiEventType::CoraSpecialPlace:
-			{
-				MochiEvent::CoraSpecialPlace(data);
-				break;
-			}
-			case (EventType)MochiEventType::CoraActiveSuperWeapon:
-			{
-				MochiEvent::CoraActiveSuperWeapon(data);
-				break;
-			}
-			case (EventType)MochiEventType::CoraPlace:
-			{
-				MochiEvent::CoraPlace(data);
-				break;
-			}
-
-			case (EventType)MochiEventType::CoraUnlockAllTech:
-			{
-				MochiEvent::CoraUnlockAllTech(data);
-				break;
-			}
-			case (EventType)MochiEventType::CoraAIControl: 
-			{
-				MochiEvent::CoraAIControl(data);
-				break;
-			}
-			case (EventType)MochiEventType::CoraMessage:
-			{
-				MochiEvent::CoraMessage(data);
-				break;
-			}
-			//****原有事件处理****//
-			case EventType::FrameSync:
-			{
-				MochiEvent::OriginalFrameSyncEvent(data);
-				break;
-			}
-			case EventType::FrameInfo:
-			{
-				MochiEvent::OriginalFrameInfoEvent(data);
-				break;
-			}
-			case EventType::Place:
-			{
-				MochiEvent::OriginalPlaceEvent(data);
-				break;
-			}
-
-			case EventType::Produce:
-			{
-				MochiEvent::OriginalProduceEvent(data);
-				break;
-			}
-
-
-			case EventType::MegaMission:
-			{
-				MochiEvent::OriginalMegaMissionEvent(data);
-				break;
-			}
-			case EventType::MegaMissionF:
-			{
-				MochiEvent::OriginalMegaMissionFEvent(data);
-				break;
-			}
-		}//switch (data->Place.RTTIType)
+	GeneralHook::ScenarioClearClassesEvent.Subscribe([]() {
+		MochiEvent::ClearPendingEvents();
 	});
 
 	isRegistered = true;
