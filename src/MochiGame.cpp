@@ -284,7 +284,29 @@ void MochiGame::PlayMovie(const char* fileName,
 
 
 void MochiGame::SetCurrentPlayerAIControl(bool bCurrentPlayIsAIControl) { //true 
-	MochiEvent::SendAIControlEvent(HouseClass::CurrentPlayer, bCurrentPlayIsAIControl);
+	HouseClass* pHouse = HouseClass::CurrentPlayer;
+	pHouse->IsHumanPlayer = pHouse->IsInPlayerControl = !bCurrentPlayIsAIControl; //两个标志一起翻，AI 判断两端一致
+	if (!pHouse->IsHumanPlayer) {  //true 
+		pHouse->IsHumanPlayer = false;
+		pHouse->Production = pHouse->AutocreateAllowed = true;
+		pHouse->IQLevel = 5;
+		pHouse->IQLevel2 = 5;
+		pHouse->AIDifficulty = AIDifficulty::Hard;
+		if (pHouse->ArrayIndex == HouseClass::CurrentPlayer->ArrayIndex) {   //直接判断是无效的用index两边ptr地址不一定一样
+			MessageListClass::Instance.PrintMessage(L"AI接管控制!", 300, ColorScheme::Green);
+		}
+
+	}
+	else {
+		pHouse->Production = pHouse->AutocreateAllowed = false;
+		pHouse->IQLevel = 0;
+		pHouse->IQLevel2 = 0;
+		pHouse->AIDifficulty = AIDifficulty::Normal;
+		if (pHouse->ArrayIndex == HouseClass::CurrentPlayer->ArrayIndex) {
+			MessageListClass::Instance.PrintMessage(L"玩家接管控制!", 300, ColorScheme::Green);
+		}
+
+	}
 };
 
 void MochiGame::ActiveAllSuperWeapon(HouseClass* pHouse) {

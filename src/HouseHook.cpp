@@ -92,7 +92,7 @@ DEFINE_HOOK(0x50B6F0, HouseClass_IsControlledByCurrentPlayer, 0x7)
 	bool isControlAllUnit =
 		MochiINI::PlayerBaseConfig->GetValueByKey<bool>(
 			"IsControlAllUnit", false);
-	if (isControlAllUnit || pThis == HouseClass::CurrentPlayer) {
+	if (isControlAllUnit) {
 		R->AL(1);
 		return 0x50B752;
 	}
@@ -100,10 +100,4 @@ DEFINE_HOOK(0x50B6F0, HouseClass_IsControlledByCurrentPlayer, 0x7)
 }
 //**********************************控制所有单位结束*************************************************
 
-
-
-DEFINE_HOOK(0x64C4FB, DoList_HouseFilter_AISync, 0x18)
-{
-	return 0x64C513;
-}
 
