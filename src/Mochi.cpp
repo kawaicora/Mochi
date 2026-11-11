@@ -70,7 +70,7 @@ bool __stdcall DllMain(HANDLE hInstance, DWORD dwReason, LPVOID v)
 
 			std::string keyPath = dir + "\\Woldata.key";
 			FILE* fp = nullptr;
-			fopen_s(&fp, keyPath.c_str(), "a");
+			fopen_s(&fp, keyPath.c_str(), "w");
 			if (fp) {
 				fprintf(fp, "%s\\SETUP.INI", keyStr);
 				fclose(fp);
@@ -187,6 +187,7 @@ void Mochi::RegisterEvent() {
 			MochiINI::INIReader["PlayerBaseConfig"]["IsInstantConstruction"].Raw = "false";
 			MochiINI::INIReader["PlayerBaseConfig"]["IsAutoChargePlayerAllSuperweapon"].Raw = "false";
 			MochiINI::INIReader["PlayerBaseConfig"]["IsUnlockAllTech"].Raw = "false";
+			MochiINI::INIReader["PlayerBaseConfig"]["IsControlAllUnit"].Raw = "false";
 			MochiINI::INIReader["PlayerBaseConfig"]["IsAIControl"].Raw = "false";
 			MochiINI::INIReader["PlayerBaseConfig"]["IsDrawGameObjectInfo"].Raw = "false";
 			MochiINI::INIReader["PlayerBaseConfig"]["IsDrawHouseInfo"].Raw = "false";
@@ -205,6 +206,7 @@ void Mochi::RegisterEvent() {
 		MakeCommand<UnlockAllUnitCommandClass>();
 		MakeCommand<GiveMoneyCommandClass>();
 		MakeCommand<GenUnitCommandClass>();
+		MakeCommand<ControlAllUnitCommandClass>();
 		MakeCommand<DrawGameObjectInfoCommandClass>();
 		MakeCommand<DrawHouseInfoCommandClass>();
 

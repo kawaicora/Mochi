@@ -245,10 +245,6 @@ void MochiEvent::CoraMoneyChange(EventData* data) {
 };
 
 
-
-//
-
-
 // 静态缓存（类/全局）
 static std::vector<wchar_t> g_msgBuffer;
 static std::unordered_set<int> g_recvIdxSet;
@@ -303,14 +299,6 @@ void MochiEvent::CoraMessage(EventData* data)
 		g_expectedTotalPack = 0;
 	}
 }
-
-//
-
-
-
-
-
-
 
 void MochiEvent::CoraCompleteProduction(EventData* data) {
 	Debug::LogW(L"***************************************CoraCompleteProduction*************************************************\n");
