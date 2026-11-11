@@ -284,26 +284,7 @@ void MochiGame::PlayMovie(const char* fileName,
 
 
 void MochiGame::SetCurrentPlayerAIControl(bool bCurrentPlayIsAIControl) { //true 
-	HouseClass::CurrentPlayer->IsHumanPlayer = !bCurrentPlayIsAIControl; //设置成相反的值 //false
-	if (!HouseClass::CurrentPlayer->IsHumanPlayer) {  //true 
-		HouseClass::CurrentPlayer->IsHumanPlayer = false;
-		HouseClass::CurrentPlayer->Production = HouseClass::CurrentPlayer->AutocreateAllowed = true;
-		HouseClass::CurrentPlayer->IQLevel = 5;
-		HouseClass::CurrentPlayer->IQLevel2 = 5;
-		HouseClass::CurrentPlayer->AIDifficulty = AIDifficulty::Hard;
-		MessageListClass::Instance.PrintMessage(L"AI接管控制!", 300, ColorScheme::Green);
-	}
-	else {
-
-
-		HouseClass::CurrentPlayer->IsHumanPlayer = true;
-		HouseClass::CurrentPlayer->Production = HouseClass::CurrentPlayer->AutocreateAllowed = false;
-		HouseClass::CurrentPlayer->IQLevel = 0;
-		HouseClass::CurrentPlayer->IQLevel2 = 0;
-		HouseClass::CurrentPlayer->AIDifficulty = AIDifficulty::Normal;
-		MessageListClass::Instance.PrintMessage(L"玩家接管控制!", 300, ColorScheme::Green);
-	}
-
+	MochiEvent::SendAIControlEvent(HouseClass::CurrentPlayer, bCurrentPlayIsAIControl);
 };
 
 void MochiGame::ActiveAllSuperWeapon(HouseClass* pHouse) {

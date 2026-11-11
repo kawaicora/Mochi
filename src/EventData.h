@@ -300,7 +300,9 @@ public:
 			int Amount;
 
 		} Money;
-
+		struct AIControl {
+			bool isAIControl;
+		} AIControl;
 		struct MessageEx {
 			int  totalPackCount;   // +0   总包数（分包完成后算出，每包都带）
 			int  currPackCount;    // +4   发送进度（发出时 +1）

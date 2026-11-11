@@ -454,11 +454,15 @@ void Mochi::RegisterEvent() {
 				MochiEvent::CoraUnlockAllTech(data);
 				break;
 			}
-
+			case (EventType)MochiEventType::CoraAIControl: 
+			{
+				MochiEvent::CoraAIControl(data);
+				break;
+			}
 			case (EventType)MochiEventType::CoraMessage:
 			{
 				MochiEvent::CoraMessage(data);
-
+				break;
 			}
 			//****原有事件处理****//
 			case EventType::FrameSync:

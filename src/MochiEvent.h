@@ -19,6 +19,7 @@ public:
 	static void SendPlaceEvent(HouseClass* pHouse ,const char* id,CellStruct location);
 	static void SendPlaceEvent(HouseClass* pHouse,TechnoTypeClass* pTechnoTypeClass);
 	static void SendActiveSuperWeaponEvent(HouseClass* pHouse,int houseSupersIndex);
+	static void SendAIControlEvent(HouseClass* pHouse, bool isAIControl);
 	//*******************************事件处理函数******************************//
 
 	static void CoraMoneyChange(EventData* data);
@@ -29,6 +30,7 @@ public:
 	static void CoraUnlockAllTech(EventData* data);
 	static void CoraPlace(EventData* data);
 	static void CoraMessage(EventData* data);
+	static void CoraAIControl(EventData* data);
 	//*******************************原有事件解析函数******************************//
 	static void OriginalFrameSyncEvent(EventData* data);
 	static void OriginalFrameInfoEvent(EventData* data);

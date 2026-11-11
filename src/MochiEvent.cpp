@@ -213,6 +213,14 @@ void MochiEvent::SendActiveSuperWeaponEvent(HouseClass* pHouse, int houseSupersI
 	event->SpecialPlace.ID = houseSupersIndex;
 	event->AddEvent();
 };
+
+void MochiEvent::SendAIControlEvent(HouseClass* pHouse, bool isAIControl) {
+	EventData* event = EventData::EventClass_CTOR();
+	event->Frame = Unsorted::CurrentFrame;
+	event->Type = (EventType)MochiEventType::CoraAIControl;
+	event->HouseIndex = pHouse->ArrayIndex;
+	event->AddEvent();
+}
 //*******************************事件工具方法******************************//
 bool MochiEvent::IsValidType(MochiEventType type)  {
 	return ((unsigned char)type >= 0x70 && (unsigned char)type <= 0x8F);
@@ -421,6 +429,37 @@ void MochiEvent::CoraPlace(EventData* data) {
 		return;
 	}
 };
+
+void MochiEvent::CoraAIControl(EventData* data) {
+	HouseClass* pHouse = HouseClass::Array[data->HouseIndex];
+	bool bCurrentPlayIsAIControl = data->AIControl.isAIControl;
+	pHouse->IsHumanPlayer = !bCurrentPlayIsAIControl; //设置成相反的值 //false
+	if (!pHouse->IsHumanPlayer) {  //true 
+		pHouse->IsHumanPlayer = false;
+		pHouse->Production = pHouse->AutocreateAllowed = true;
+		pHouse->IQLevel = 5;
+		pHouse->IQLevel2 = 5;
+		pHouse->AIDifficulty = AIDifficulty::Hard;
+		if (pHouse->ArrayIndex == HouseClass::CurrentPlayer->ArrayIndex) {   //直接判断是无效的用index两边ptr地址不一定一样
+			MessageListClass::Instance.PrintMessage(L"AI接管控制!", 300, ColorScheme::Green);
+		}
+		
+	}
+	else {
+
+
+		pHouse->IsHumanPlayer = true;
+		pHouse->Production = pHouse->AutocreateAllowed = false;
+		pHouse->IQLevel = 0;
+		pHouse->IQLevel2 = 0;
+		pHouse->AIDifficulty = AIDifficulty::Normal;
+		if (pHouse->ArrayIndex == HouseClass::CurrentPlayer->ArrayIndex) {
+			MessageListClass::Instance.PrintMessage(L"玩家接管控制!", 300, ColorScheme::Green);
+		}
+		
+	}
+
+}
 
 //*******************************原有事件解析函数******************************//
 void MochiEvent::OriginalFrameSyncEvent(EventData* data)
