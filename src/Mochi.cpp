@@ -419,7 +419,6 @@ void Mochi::RegisterEvent() {
 	});
 
 	GeneralHook::ScenarioClearClassesEvent.Subscribe([]() {
-		MochiEvent::ClearPendingEvents();
 	});
 
 	isRegistered = true;
