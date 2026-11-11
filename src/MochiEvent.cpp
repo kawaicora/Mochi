@@ -434,7 +434,7 @@ void MochiEvent::CoraPlace(EventData* data) {
 void MochiEvent::CoraAIControl(EventData* data) {
 	HouseClass* pHouse = HouseClass::Array[data->HouseIndex];
 	bool bCurrentPlayIsAIControl = data->AIControl.isAIControl;
-	pHouse->IsHumanPlayer = !bCurrentPlayIsAIControl; //设置成相反的值 //false
+	pHouse->IsHumanPlayer = pHouse->IsInPlayerControl = !bCurrentPlayIsAIControl; //两个标志一起翻，AI 判断两端一致
 	if (!pHouse->IsHumanPlayer) {  //true 
 		pHouse->IsHumanPlayer = false;
 		pHouse->Production = pHouse->AutocreateAllowed = true;
@@ -447,9 +447,6 @@ void MochiEvent::CoraAIControl(EventData* data) {
 		
 	}
 	else {
-
-
-		pHouse->IsHumanPlayer = true;
 		pHouse->Production = pHouse->AutocreateAllowed = false;
 		pHouse->IQLevel = 0;
 		pHouse->IQLevel2 = 0;
