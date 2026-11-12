@@ -1,6 +1,7 @@
 ﻿#include "HouseHook.h"
 #include "Debug.h"
 #include <MochiINI.h>
+#include "MochiEvent.h"
 Event<HouseClass*> HouseHook::HouseClassCreateEvent;
 DEFINE_HOOK(0x4F6532, HouseClass_CTOR, 5) {
 	GET(HouseClass*, pHouseClass, EAX);
@@ -86,18 +87,39 @@ DEFINE_HOOK(0x4FC580, HouseClass_AcceptDefeat_AIControlWin, 5)
 //**********************************AI 胜利判定部分结束*************************************************
 
 //**********************************控制所有单位*************************************************
-DEFINE_HOOK(0x50B6F0, HouseClass_IsControlledByCurrentPlayer, 0x7)
+
+DEFINE_HOOK(0x50B730, HouseClass_IsControlledByHuman, 0x7)
 {
 	GET(HouseClass*, pThis, ECX);
 	bool isControlAllUnit =
 		MochiINI::PlayerBaseConfig->GetValueByKey<bool>(
 			"IsControlAllUnit", false);
-	if (isControlAllUnit) {
-		R->AL(1);
-		return 0x50B752;
+	if (SessionClass::Instance.GameMode == GameMode::LAN || SessionClass::Instance.GameMode == GameMode::Internet) {
+		if (isControlAllUnit && (pThis->IsHumanPlayer || MochiEvent::GetHouseAIControlFlag(pThis))) {   // 允许控制所有单位  已经实验过全部是人类玩家是我可以控制别人的单位并且发了事件对面确认同步 AI的不知道 如果对方是玩家然后切换了AI控制理论我也能控制
+			R->AL(1);
+			return 0x50B752;
+		}
+
+		if (pThis == HouseClass::CurrentPlayer && MochiEvent::GetHouseAIControlFlag(pThis)) {  // 当前玩家是AI接管 玩家需要可以控制  逻辑上我只测试了自己
+			R->AL(1);
+			return 0x50B752;
+		}
 	}
+	else {
+		if (isControlAllUnit) {
+			R->AL(1);
+			return 0x50B752;
+		}
+	}
+	
 	return 0;
 }
+
+
 //**********************************控制所有单位结束*************************************************
 
 
+//********************************	AI 接管时的网络控制 *************************************************
+
+
+//********************************	AI 接管时的网络控制结束 *************************************************

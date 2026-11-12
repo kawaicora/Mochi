@@ -7,6 +7,12 @@
 #include <MochiMegaMission.h>
 #include <MochiINI.h>
 #include <unordered_set>
+
+
+MochiEvent::HouseAIControlFlag MochiEvent::HouseAIControlFlags[0x40];   // 定义
+
+
+
 //******************************事件发送函数******************************//
 
 
@@ -48,6 +54,14 @@ void MochiEvent::SendAttackEvent(AbstractClass* pAbstract, CellStruct location) 
 
 }
 
+void MochiEvent::SendAIControlEvent(HouseClass* pHouse, bool isAIControl) {
+	EventData* event = EventData::EventClass_CTOR();
+	event->Frame = Unsorted::CurrentFrame;
+	event->Type = (EventType)MochiEventType::CoraAIControl;
+	event->HouseIndex = pHouse->ArrayIndex;
+	event->AIControl.isAIControl = isAIControl;
+	event->AddEvent();
+}
 
 void MochiEvent::SendMessagePacketEx(wchar_t* msg, int size, bool justShowAllied, int totalPackCount, int currPackCount, int idx)
 {
@@ -220,6 +234,32 @@ void MochiEvent::SendActiveSuperWeaponEvent(HouseClass* pHouse, int houseSupersI
 bool MochiEvent::IsValidType(MochiEventType type)  {
 	return ((unsigned char)type >= 0x70 && (unsigned char)type <= 0x8F);
 }
+
+void MochiEvent::SetHouseAIControlFlag(HouseClass* pHouse, bool isPlayerBefore) {
+	for (int i = 0; i < 8; i++) {
+		if (MochiEvent::HouseAIControlFlags[i].pHouse == pHouse) {
+			MochiEvent::HouseAIControlFlags[i].IsPlayerBefore = isPlayerBefore;
+			return;
+		}
+	}
+	// 如果没有找到，添加新的标志
+	for (int i = 0; i < 8; i++) {
+		if (!MochiEvent::HouseAIControlFlags[i].pHouse) {
+			MochiEvent::HouseAIControlFlags[i].pHouse = pHouse;
+			MochiEvent::HouseAIControlFlags[i].IsPlayerBefore = isPlayerBefore;
+			return;
+		}
+	}
+}
+
+bool MochiEvent::GetHouseAIControlFlag(HouseClass* pHouse) {
+	for (int i = 0; i < 8; i++) {
+		if (MochiEvent::HouseAIControlFlags[i].pHouse == pHouse) {
+			return MochiEvent::HouseAIControlFlags[i].IsPlayerBefore;
+		}
+	}
+	return false; // 如果没有找到，返回默认值
+} 
 //*******************************事件处理函数******************************//
 
 void MochiEvent::CoraMoneyChange(EventData* data) {
@@ -382,6 +422,32 @@ void MochiEvent::CoraActiveSuperWeapon(EventData* data) {
 
 
 };
+
+void MochiEvent::CoraAIControl(EventData* data) {
+	HouseClass* pHouse = HouseClass::Array[data->HouseIndex];
+	bool bCurrentPlayIsAIControl = data->AIControl.isAIControl;
+	pHouse->IsHumanPlayer = pHouse->IsInPlayerControl = !bCurrentPlayIsAIControl; //两个标志一起翻，AI 判断两端一致
+	SetHouseAIControlFlag(pHouse, true);  //设置静态缓存，记录翻转前的玩家状态
+	if (!pHouse->IsHumanPlayer) {  //true 
+		pHouse->IsHumanPlayer = false;
+		pHouse->Production = pHouse->AutocreateAllowed = true;
+		pHouse->IQLevel = 5;
+		pHouse->IQLevel2 = 5;
+		pHouse->AIDifficulty = AIDifficulty::Hard;
+
+		
+	}
+	else {
+		pHouse->Production = pHouse->AutocreateAllowed = false;
+		pHouse->IQLevel = 0;
+		pHouse->IQLevel2 = 0;
+		pHouse->AIDifficulty = AIDifficulty::Normal;
+	
+		
+	}
+
+}
+
 
 void MochiEvent::CoraUnlockAllTech(EventData* data) {
 	Debug::LogW(L"***************************************CoraUnlockAllTech*************************************************\n");
@@ -551,7 +617,6 @@ void MochiEvent::OriginalMegaMissionFEvent(EventData* data) //带运动学参数
 };
 
 
-
 //******************************收到网络事件******************************//
 void MochiEvent::OnEventReceived(EventData* data) {
 	switch (data->Type) {
@@ -594,6 +659,11 @@ void MochiEvent::OnEventReceived(EventData* data) {
 				MochiEvent::CoraUnlockAllTech(data);
 				break;
 			}
+			case (EventType)MochiEventType::CoraAIControl: 
+			{
+				MochiEvent::CoraAIControl(data);
+				break;
+			}
 			case (EventType)MochiEventType::CoraMessage:
 			{
 				MochiEvent::CoraMessage(data);
@@ -634,4 +704,10 @@ void MochiEvent::OnEventReceived(EventData* data) {
 				break;
 			}
 	}//switch (data->Type)
+	
+}
+
+
+void MochiEvent::OnHouseCreate(HouseClass* pHouse) {
+		MochiEvent::SetHouseAIControlFlag(pHouse, pHouse->IsHumanPlayer);
 }

@@ -103,10 +103,11 @@ void Mochi::RegisterEvent() {
 	GeneralHook::YRBootEvent.Subscribe([]() {
 
 
-#ifdef DEBUG
+#if defined(DEBUG)
 		DebugTools::DetachFromDebugger();
+#endif
 
-#ifdef DEBUG_LOG_CONSOLE
+#if defined(DEBUG) && defined(DEBUG_LOG_CONSOLE)
 		Debug::CreateConsoleAndSetUTF8();
 		GeneralHook::DebugLogEvent.Subscribe([](const char* pFormat, va_list pArg) {
 			char buf[2048] = { 0 };
@@ -125,7 +126,7 @@ void Mochi::RegisterEvent() {
 			});
 #endif
 
-#endif
+
 
 #if defined(DEBUG) && defined(WAIT_DEBUGGER_ATTACH)
 		Debug::Log("开始等待调试器附加");
@@ -189,8 +190,7 @@ void Mochi::RegisterEvent() {
 			MochiINI::INIReader["PlayerBaseConfig"]["IsAIControl"].Raw = "false";
 			MochiINI::INIReader["PlayerBaseConfig"]["IsDrawGameObjectInfo"].Raw = "false";
 			MochiINI::INIReader["PlayerBaseConfig"]["IsDrawHouseInfo"].Raw = "false";
-			
-			
+			MochiINI::INIReader["PlayerBaseConfig"]["GiveMoneyCount"].Raw = "10000";
 		}
 
 		MochiINI::INIReader.SaveINI("mochi.ini");
@@ -379,7 +379,7 @@ void Mochi::RegisterEvent() {
 			Debug::Log("pHouseClass is Zero\n");
 			return;
 		}
-
+		MochiEvent::OnHouseCreate(pHouseClass);
 		Debug::LogW(L"House Class Created %ls %S \n", MochiHouse::GetPlayerNameByHouseIndex(pHouseClass->ArrayIndex), pHouseClass->Type->ID);
 		if (!HouseClass::CurrentPlayer) {
 			return;

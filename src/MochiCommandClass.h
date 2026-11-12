@@ -4,7 +4,7 @@
 #include <MochiGame.h>
 #include <RadarHook.h>
 #include <MochiRadar.h>
-
+#include <FPSCounter.h>
 //需要启动时修复
 class AIControlCommandClass: public CommandClass
 {
@@ -55,11 +55,14 @@ public:
 
 		// 保存配置
 		MochiINI::INIReader.SaveINI("mochi.ini");
-
-
-
-
 		MochiGame::SetCurrentPlayerAIControl(isAIControl);
+
+		if (!isAIControl) {
+			MessageListClass::Instance.PrintMessage(L"玩家接管控制!", 300, ColorScheme::Green);
+		}
+		else {
+			MessageListClass::Instance.PrintMessage(L"AI接管控制!", 300, ColorScheme::Green);
+		}
 		return;
 	}
 };
@@ -112,7 +115,9 @@ public:
 
 		// 保存配置
 		MochiINI::INIReader.SaveINI("mochi.ini");
-
+		wchar_t buf[100];
+		wsprintfW(buf, L"瞬间建造%ls", isInstantConstruction ? L"已开启" : L"已关闭");
+		MessageListClass::Instance.AddMessage(L"提示", 0, buf, ColorScheme::Red, TextPrintType::DropShadow, FPSCounter::CurrentFrameRate * 1, false);
 		
 		return;
 	}
@@ -165,6 +170,9 @@ class AutoChargePlayerAllSuperweaponCommandClass : public CommandClass
 
 		// 保存配置
 		MochiINI::INIReader.SaveINI("mochi.ini");
+		wchar_t buf[100];
+		wsprintfW(buf, L"自动瞬间充能超武%ls", isAutoChargePlayerAllSuperweapon ? L"已开启" : L"已关闭");
+		MessageListClass::Instance.AddMessage(L"提示", 0, buf, ColorScheme::Red, TextPrintType::DropShadow, FPSCounter::CurrentFrameRate * 1, false);
 		return;
 	}
 };
@@ -196,8 +204,24 @@ public:
 
 	virtual void Execute(WWKey eInput) const override
 	{
+		MochiINI::PlayerBaseConfig =
+			(MochiINI::Section*)MochiINI::INIReader.GetSection(
+				"PlayerBaseConfig");
 
-		MochiEvent::SendChangeMoneyEvent(HouseClass::CurrentPlayer, 1000);
+		if (!MochiINI::PlayerBaseConfig)
+		{
+			// 配置不存在时，创建 Section
+			MochiINI::PlayerBaseConfig =
+				&MochiINI::INIReader["PlayerBaseConfig"];
+		}
+
+		int money =
+			MochiINI::PlayerBaseConfig->GetValueByKey(
+				"GiveMoneyCount", 10000);
+		wchar_t buf[100];
+		wsprintfW(buf, L"获得金钱:%d", money);
+		MessageListClass::Instance.AddMessage(L"提示", 0, buf, ColorScheme::Red, TextPrintType::DropShadow, FPSCounter::CurrentFrameRate * 1, false);
+		MochiEvent::SendChangeMoneyEvent(HouseClass::CurrentPlayer, money);
 		return;
 	}
 };
@@ -253,6 +277,10 @@ public:
 		// 保存配置
 		MochiINI::INIReader.SaveINI("mochi.ini");
 		MochiEvent::SendUnlockAllTechEvent(HouseClass::CurrentPlayer, isUnlockAllTech);
+	
+		wchar_t buf[100];
+		wsprintfW(buf, L"%ls",isUnlockAllTech? L"已解锁全部单位":L"已恢复原始状态");
+		MessageListClass::Instance.AddMessage(L"提示", 0, buf, ColorScheme::Red, TextPrintType::DropShadow, FPSCounter::CurrentFrameRate * 1, false);
 		return;
 	}
 };
@@ -307,7 +335,9 @@ public:
 
 		// 保存配置
 		MochiINI::INIReader.SaveINI("mochi.ini");
-
+		wchar_t buf[100];
+		wsprintfW(buf, L"%ls", isControlAllUnit ? L"控制所有单位" : L"解控所有单位");
+		MessageListClass::Instance.AddMessage(L"提示", 0, buf, ColorScheme::Red, TextPrintType::DropShadow, FPSCounter::CurrentFrameRate * 1, false);
 		return;
 	}
 };
@@ -362,7 +392,9 @@ public:
 
 		// 保存配置
 		MochiINI::INIReader.SaveINI("mochi.ini");
-
+		wchar_t buf[100];
+		wsprintfW(buf, L"%ls", isDrawGameObjectInfo ? L"显示所有单位信息" : L"隐藏所有单位信息");
+		MessageListClass::Instance.AddMessage(L"提示", 0, buf, ColorScheme::Red, TextPrintType::DropShadow, FPSCounter::CurrentFrameRate * 1, false);
 		return;
 	}
 };
@@ -419,7 +451,9 @@ public:
 
 		// 保存配置
 		MochiINI::INIReader.SaveINI("mochi.ini");
-
+		wchar_t buf[100];
+		wsprintfW(buf, L"%ls", isDrawHouseInfo ? L"显示阵营信息" : L"隐藏阵营信息");
+		MessageListClass::Instance.AddMessage(L"提示", 0, buf, ColorScheme::Red, TextPrintType::DropShadow, FPSCounter::CurrentFrameRate * 1, false);
 		return;
 	}
 };

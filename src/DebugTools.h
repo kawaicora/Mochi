@@ -1,5 +1,5 @@
 ﻿#pragma once
-#ifdef DEBUG
+#if defined(DEBUG)
 
 #include <Dbghelp.h>
 #include <tlhelp32.h>
