@@ -286,62 +286,6 @@ public:
 };
 
 
-class ControlAllUnitCommandClass : public CommandClass
-{
-public:
-	//CommandClass
-	virtual const char* GetName() const override
-	{
-		return "ControlAllUnit";
-	}
-
-	virtual const wchar_t* GetUIName() const override
-	{
-		return L"Control All Unit";
-	}
-
-	virtual const wchar_t* GetUICategory() const override
-	{
-		return L"Mochi开发选项";
-	}
-
-	virtual const wchar_t* GetUIDescription() const override
-	{
-		return L"控制所有单位";
-	}
-
-	virtual void Execute(WWKey eInput) const override
-	{
-
-		MochiINI::PlayerBaseConfig =
-			(MochiINI::Section*)MochiINI::INIReader.GetSection(
-				"PlayerBaseConfig");
-
-		if (!MochiINI::PlayerBaseConfig)
-		{
-			// 配置不存在时，创建 Section
-			MochiINI::PlayerBaseConfig =
-				&MochiINI::INIReader["PlayerBaseConfig"];
-		}
-
-		bool isControlAllUnit =
-			MochiINI::PlayerBaseConfig->GetValueByKey<bool>(
-				"IsControlAllUnit", false);
-		isControlAllUnit = !isControlAllUnit;
-		// 修改配置
-		MochiINI::INIReader["PlayerBaseConfig"]
-			["IsControlAllUnit"].Raw =
-			isControlAllUnit ? "true" : "false";
-
-		// 保存配置
-		MochiINI::INIReader.SaveINI("mochi.ini");
-		wchar_t buf[100];
-		wsprintfW(buf, L"%ls", isControlAllUnit ? L"控制所有单位" : L"解控所有单位");
-		MessageListClass::Instance.AddMessage(L"提示", 0, buf, ColorScheme::Red, TextPrintType::DropShadow, FPSCounter::CurrentFrameRate * 1, false);
-		return;
-	}
-};
-
 
 class DrawGameObjectInfoCommandClass : public CommandClass
 {

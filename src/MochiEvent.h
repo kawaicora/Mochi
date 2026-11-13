@@ -13,7 +13,6 @@ public:
 	static void SendMessagePacketEx(wchar_t * msg,  int size, bool justShowAllied, int totalPackCount, int currPackCount,int Idx);
 	static void SendMoveEvent(AbstractClass* pAbstract, CellStruct location);
 	static void SendAttackEvent(AbstractClass* pAbstract, CellStruct location);
-    static void SendAIControlEvent(HouseClass *pHouse, bool isAIControl);
     static void SendCompleteProduceEvent(HouseClass *pHouse, FactoryClass *pFactory);
     static void SendChangeMoneyEvent(HouseClass* pHouse, int amount);
 	static void SendUnlockAllTechEvent(HouseClass* pHouse, bool IsUnlock);
@@ -30,7 +29,6 @@ public:
 	static void CoraSuperWeaponCharge(EventData* data);
 	static void CoraSpecialPlace(EventData* data);
 	static void CoraActiveSuperWeapon(EventData* data);
-    static void CoraAIControl(EventData *data);
     static void CoraUnlockAllTech(EventData *data);
     static void CoraPlace(EventData* data);
 	static void CoraMessage(EventData* data);

@@ -54,14 +54,7 @@ void MochiEvent::SendAttackEvent(AbstractClass* pAbstract, CellStruct location) 
 
 }
 
-void MochiEvent::SendAIControlEvent(HouseClass* pHouse, bool isAIControl) {
-	EventData* event = EventData::EventClass_CTOR();
-	event->Frame = Unsorted::CurrentFrame;
-	event->Type = (EventType)MochiEventType::CoraAIControl;
-	event->HouseIndex = pHouse->ArrayIndex;
-	event->AIControl.isAIControl = isAIControl;
-	event->AddEvent();
-}
+
 
 void MochiEvent::SendMessagePacketEx(wchar_t* msg, int size, bool justShowAllied, int totalPackCount, int currPackCount, int idx)
 {
@@ -423,31 +416,6 @@ void MochiEvent::CoraActiveSuperWeapon(EventData* data) {
 
 };
 
-void MochiEvent::CoraAIControl(EventData* data) {
-	HouseClass* pHouse = HouseClass::Array[data->HouseIndex];
-	bool bCurrentPlayIsAIControl = data->AIControl.isAIControl;
-	pHouse->IsHumanPlayer = pHouse->IsInPlayerControl = !bCurrentPlayIsAIControl; //两个标志一起翻，AI 判断两端一致
-	SetHouseAIControlFlag(pHouse, true);  //设置静态缓存，记录翻转前的玩家状态
-	if (!pHouse->IsHumanPlayer) {  //true 
-		pHouse->IsHumanPlayer = false;
-		pHouse->Production = pHouse->AutocreateAllowed = true;
-		pHouse->IQLevel = 5;
-		pHouse->IQLevel2 = 5;
-		pHouse->AIDifficulty = AIDifficulty::Hard;
-
-		
-	}
-	else {
-		pHouse->Production = pHouse->AutocreateAllowed = false;
-		pHouse->IQLevel = 0;
-		pHouse->IQLevel2 = 0;
-		pHouse->AIDifficulty = AIDifficulty::Normal;
-	
-		
-	}
-
-}
-
 
 void MochiEvent::CoraUnlockAllTech(EventData* data) {
 	Debug::LogW(L"***************************************CoraUnlockAllTech*************************************************\n");
@@ -659,11 +627,7 @@ void MochiEvent::OnEventReceived(EventData* data) {
 				MochiEvent::CoraUnlockAllTech(data);
 				break;
 			}
-			case (EventType)MochiEventType::CoraAIControl: 
-			{
-				MochiEvent::CoraAIControl(data);
-				break;
-			}
+
 			case (EventType)MochiEventType::CoraMessage:
 			{
 				MochiEvent::CoraMessage(data);

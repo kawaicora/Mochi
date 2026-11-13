@@ -284,8 +284,30 @@ void MochiGame::PlayMovie(const char* fileName,
 
 
 void MochiGame::SetCurrentPlayerAIControl(bool bCurrentPlayIsAIControl) { //true
-	HouseClass*  pCurrentPlayer = HouseClass::CurrentPlayer; 
-	MochiEvent::SendAIControlEvent(pCurrentPlayer, bCurrentPlayIsAIControl);
+	if (SessionClass::Instance.GameMode == GameMode::LAN || SessionClass::Instance.GameMode == GameMode::Internet) {
+		MessageListClass::Instance.AddMessage(L"提示", 0, L"无法在联机模式开启", ColorScheme::Red, TextPrintType::DropShadow, FPSCounter::CurrentFrameRate * 1, false);
+		return;
+	}
+	HouseClass* pHouse = HouseClass::CurrentPlayer;
+	pHouse->IsHumanPlayer = pHouse->IsInPlayerControl = !bCurrentPlayIsAIControl; //两个标志一起翻，AI 判断两端一致
+	MochiEvent::SetHouseAIControlFlag(pHouse, true);  //设置静态缓存，记录翻转前的玩家状态
+	if (!pHouse->IsHumanPlayer) {  //true 
+		pHouse->IsHumanPlayer = false;
+		pHouse->Production = pHouse->AutocreateAllowed = true;
+		pHouse->IQLevel = 5;
+		pHouse->IQLevel2 = 5;
+		pHouse->AIDifficulty = AIDifficulty::Hard;
+
+
+	}
+	else {
+		pHouse->Production = pHouse->AutocreateAllowed = false;
+		pHouse->IQLevel = 0;
+		pHouse->IQLevel2 = 0;
+		pHouse->AIDifficulty = AIDifficulty::Normal;
+
+
+	}
 };
 
 void MochiGame::ActiveAllSuperWeapon(HouseClass* pHouse) {

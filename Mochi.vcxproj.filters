@@ -155,9 +155,6 @@
     <ClInclude Include="src\MochiHouse.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="src\MochiAICEvent.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
     <ClInclude Include="src\MochiFactory.h">
       <Filter>头文件</Filter>
     </ClInclude>
