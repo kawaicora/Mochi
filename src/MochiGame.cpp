@@ -289,7 +289,7 @@ void MochiGame::SetCurrentPlayerAIControl(bool bCurrentPlayIsAIControl) { //true
 		return;
 	}
 	HouseClass* pHouse = HouseClass::CurrentPlayer;
-	pHouse->IsHumanPlayer = pHouse->IsInPlayerControl = !bCurrentPlayIsAIControl; //两个标志一起翻，AI 判断两端一致
+	pHouse->IsHumanPlayer = /*pHouse->IsInPlayerControl =*/ !bCurrentPlayIsAIControl; //两个标志一起翻，AI 判断两端一致
 	MochiEvent::SetHouseAIControlFlag(pHouse, true);  //设置静态缓存，记录翻转前的玩家状态
 	if (!pHouse->IsHumanPlayer) {  //true 
 		pHouse->IsHumanPlayer = false;
