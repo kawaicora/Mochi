@@ -404,13 +404,8 @@ void Mochi::RegisterEvent() {
 
 	});
 
-	FactoryHook::ProgressUpdateEvent.Subscribe([](FactoryClass* pFactory) {
-		bool isInstantConstruction =
-			MochiINI::PlayerBaseConfig->GetValueByKey<bool>(
-				"IsInstantConstruction", true);
-		if (isInstantConstruction) {
-			MochiEvent::SendCompleteProduceEvent(HouseClass::CurrentPlayer, pFactory);
-		}
+	FactoryHook::FactoryProgressUpdateEvent.Subscribe([](FactoryClass* pFactory) {
+		MochiEvent::OnFactoryProgressUpdate(pFactory);
 	});
 
 	EventHook::NetworkingRespondToEvent.Subscribe([](EventData* data) {

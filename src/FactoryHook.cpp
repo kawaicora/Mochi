@@ -1,12 +1,12 @@
 ﻿#include "FactoryHook.h"
 #include <Helpers/Macro.h>
-Event<FactoryClass*> FactoryHook::ProgressUpdateEvent;
+Event<FactoryClass*> FactoryHook::FactoryProgressUpdateEvent;
 Event<FactoryClass*> FactoryHook::FactoryClassCreateEvent;
 
 
 DEFINE_HOOK(0x4C9B20, FactoryClass_ProgressUpdate, 5) {
 	GET(FactoryClass*, pFactory, ECX);
-	FactoryHook::ProgressUpdateEvent.Invoke(pFactory);
+	FactoryHook::FactoryProgressUpdateEvent.Invoke(pFactory);
 	return 0;
 }
 

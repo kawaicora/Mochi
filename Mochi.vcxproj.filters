@@ -30,9 +30,6 @@
     <ClCompile Include="src\MochiTechno.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="src\MochiMap.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
     <ClCompile Include="src\MochiHouse.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
@@ -147,9 +144,6 @@
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="src\MochiTechno.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="src\MochiMap.h">
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="src\MochiHouse.h">

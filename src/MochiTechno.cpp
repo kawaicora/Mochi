@@ -1,7 +1,6 @@
 ﻿
 #include <MochiTechno.h>
 #include <Debug.h>
-#include <MochiMap.h>
 int MochiTechno::GetIndex(TechnoTypeClass* pTechnoTypeClass) {
 	AbstractType abs = pTechnoTypeClass->WhatAmI();
 	switch (abs) {
@@ -117,58 +116,152 @@ FactoryClass* MochiTechno::GetFactoryByTechnoTypeClass(HouseClass* pHouse, Techn
 };
 
 
-bool MochiTechno::PlaceTechnoAtMap(TechnoClass* pTechno, CellStruct location) {
-	TechnoTypeClass* pTechnoType = pTechno->GetTechnoType();
-	ObjectTypeClass* pObjectType = pTechno->GetType();
-	HouseClass* pHouse = pTechno->Owner;
-	if (CellClass* pCell = MapClass::Instance.TryGetCellAt(location)) {
 
-		if (!MochiMap::IsFoundationValid(pCell->MapCoords, pTechnoType))
+bool MochiTechno::PlaceTechnoAtMap(TechnoClass* pTechno, CellStruct location)
+{
+	if (!pTechno)
+	{
+		return false;
+	}
+
+	TechnoTypeClass* pType = pTechno->GetTechnoType();
+	HouseClass* pHouse = pTechno->Owner;
+	if (!pType || !pHouse)
+	{
+		pTechno->UnInit();
+		return false;
+	}
+
+	// 0x4834A0 = CellClass 整格可放置判定（0x716150 内部就是这么调的）
+	const auto IsCellClearToBuild = [](CellClass* pCell) -> bool
 		{
-			pCell =
-				MochiMap::FindNearestValidLandCell(
-					location,
-					pTechnoType);
-			if (!pCell)
+			typedef bool(__thiscall* Fn)(CellClass*, int, char, char, int, int, int, char);
+			return reinterpret_cast<Fn>(0x4834A0)(pCell, 0, 1, 1, -1, 0, -1, 1);
+		};
+
+	const auto IsCoordLegal = [](CellStruct* pCell) -> bool
+		{
+			typedef bool(__thiscall* Fn)(MapClass*, CellStruct*);
+			return reinterpret_cast<Fn>(0x568300)(&MapClass::Instance, pCell);
+		};
+
+	const auto FetchCell = [](CellStruct* pCell) -> CellClass*
+		{
+			typedef CellClass* (__thiscall* Fn)(MapClass*, CellStruct*);
+			return reinterpret_cast<Fn>(0x5657A0)(&MapClass::Instance, pCell);
+		};
+
+	const auto IsPlaceable = [&](CellStruct cell) -> bool
+		{
+			if (!IsCoordLegal(&cell))
 			{
-				Debug::LogW(
-					L"Failed To Find Valid Cell (%d,%d)\n",
-					location.X,
-					location.Y);
-				pTechno->UnInit();
 				return false;
 			}
-			location =
-				pCell->MapCoords;
+
+			CellClass* pCell = FetchCell(&cell);
+			if (!pCell)
+			{
+				return false;
+			}
+
+			if (BuildingTypeClass* pBuildingType = abstract_cast<BuildingTypeClass*>(pType))
+			{
+				return pBuildingType->CanPlaceHere(&cell, pHouse);   // 0x464AC0
+			}
+
+			return IsCellClearToBuild(pCell);                        // 0x4834A0
+		};
+
+	CellStruct target = location;
+	if (!IsPlaceable(target))
+	{
+		bool bFound = false;
+		for (int radius = 1; radius <= 8 && !bFound; ++radius)
+		{
+			for (int dy = -radius; dy <= radius && !bFound; ++dy)
+			{
+				for (int dx = -radius; dx <= radius; ++dx)
+				{
+					if (dy > -radius && dy < radius && dx > -radius && dx < radius)
+					{
+						continue;
+					}
+
+					CellStruct cell = { (short)(target.X + dx), (short)(target.Y + dy) };
+					if (IsPlaceable(cell))
+					{
+						target = cell;
+						bFound = true;
+						break;
+					}
+				}
+			}
 		}
 
-		pTechno->OnBridge = pCell->ContainsBridge();
-		CoordStruct coord = pCell->GetCoordsWithBridge();
-		++Unsorted::ScenarioInit;
-		bool result = pTechno->Unlimbo(coord, DirType::East);
-		--Unsorted::ScenarioInit;
-		if (!result) {
-			Debug::LogW(L"Failed To Place Object At Location (%d,%d). Object TechnoType: %ls\n", location.X, location.Y, pTechnoType->UIName);
+		if (!bFound)
+		{
+			Debug::Log("PlaceTechnoAtMap: no legal cell for %s near (%d,%d)\n",
+				pType->ID, location.X, location.Y);
 			pTechno->UnInit();
 			return false;
 		}
-		if (BuildingClass* pBuilding = abstract_cast<BuildingClass*, true>(pTechno)) {
-			if (pBuilding->Type->Foundation != Foundation::_0x0) {
-				pBuilding->QueueMission(Mission::Construction, false);
-			}
-			pBuilding->DiscoveredBy(pHouse);
-			pBuilding->IsReadyToCommence = true;
-		}
-		else if (pTechnoType->JumpJet || pTechnoType->BalloonHover) {
-			pTechno->Scatter(CoordStruct::Empty, true, false);
-		}
-		return true;
 	}
-	else {
-		Debug::LogW(L"Failed To Get Cell At Location (%d,%d). Object TechnoType: %ls\n", location.X, location.Y, pTechnoType->UIName);
+
+	CellClass* pCell = FetchCell(&target);
+	if (!pCell)
+	{
+		Debug::Log("PlaceTechnoAtMap: no cell at (%d,%d)\n", target.X, target.Y);
+		pTechno->UnInit();
 		return false;
 	}
-};
+
+	pTechno->OnBridge = pCell->ContainsBridge();
+	CoordStruct coord = pCell->GetCoordsWithBridge();
+
+	// 建筑：引擎 TAction 125 Build At 原序（0x6E4280 / 0x6E4297 / 0x6E42BB）
+	if (BuildingClass* pBuilding = abstract_cast<BuildingClass*>(pTechno))
+	{
+		pBuilding->QueueMission(Mission::Construction, false);
+		pBuilding->NextMission();
+
+		if (!pBuilding->ForceCreate(coord))
+		{
+			Debug::Log("ForceCreate failed: %s at (%d,%d)\n", pType->ID, target.X, target.Y);
+			pBuilding->UnInit();
+			return false;
+		}
+
+		pBuilding->BeginMode(BStateType::Idle);
+		pBuilding->QueueMission(Mission::Guard, false);
+		pBuilding->NextMission();
+		pBuilding->Place(false);
+
+		Debug::Log("Placed building %s at (%d,%d) Occ=%02X\n",
+			pType->ID, target.X, target.Y, pCell->OccupationFlags);
+		return true;
+	}
+
+	// 单位 / 步兵 / 空军：引擎 Unlimbo，不包 Unsorted::ScenarioInit
+	if (!pTechno->Unlimbo(coord, DirType::East))
+	{
+		Debug::Log("Unlimbo failed: %s at (%d,%d)\n", pType->ID, target.X, target.Y);
+		pTechno->UnInit();
+		return false;
+	}
+
+	if (pType->JumpJet || pType->BalloonHover)
+	{
+		pTechno->Scatter(CoordStruct::Empty, true, false);
+	}
+
+	Debug::Log("Placed %s at (%d,%d) Occ=%02X\n",
+		pType->ID, target.X, target.Y, pCell->OccupationFlags);
+	return true;
+}
+
+
+
+
 bool MochiTechno::PlaceTechnoAtMap(TechnoTypeClass* pTechnoType, CellStruct location, HouseClass* pHouse) {
 	ObjectClass* obj = pTechnoType->CreateObject(pHouse);
 	if (!obj) {

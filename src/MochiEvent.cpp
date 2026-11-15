@@ -675,3 +675,15 @@ void MochiEvent::OnEventReceived(EventData* data) {
 void MochiEvent::OnHouseCreate(HouseClass* pHouse) {
 		MochiEvent::SetHouseAIControlFlag(pHouse, pHouse->IsHumanPlayer);
 }
+
+
+void MochiEvent::OnFactoryProgressUpdate(FactoryClass* pFactory) {
+	bool isInstantConstruction =
+		MochiINI::PlayerBaseConfig->GetValueByKey<bool>(
+			"IsInstantConstruction", 
+			true
+		);
+	if (isInstantConstruction) {
+		MochiEvent::SendCompleteProduceEvent(HouseClass::CurrentPlayer, pFactory);
+	}
+}

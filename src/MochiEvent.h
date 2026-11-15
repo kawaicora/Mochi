@@ -44,6 +44,7 @@ public:
 	//*******************************回调事件函数******************************//
 	static void OnHouseCreate(HouseClass * pHouse);
 	static void OnEventReceived(EventData* data);
+	static void OnFactoryProgressUpdate(FactoryClass* pFactory);
 private:
 	static struct HouseAIControlFlag
 	{

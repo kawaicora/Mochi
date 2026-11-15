@@ -5,7 +5,7 @@
 class FactoryHook
 {
 public:
-	static Event<FactoryClass*> ProgressUpdateEvent;
+	static Event<FactoryClass*> FactoryProgressUpdateEvent;
 	static Event<FactoryClass*> FactoryClassCreateEvent;
 
 	// Non-barracks unit factory ([ID] has CloningFacility=yes + WeaponsFactory=yes):
