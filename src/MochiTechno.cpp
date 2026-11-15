@@ -116,87 +116,93 @@ FactoryClass* MochiTechno::GetFactoryByTechnoTypeClass(HouseClass* pHouse, Techn
 };
 
 
-
 bool MochiTechno::PlaceTechnoAtMap(TechnoClass* pTechno, CellStruct location)
 {
-	if (!pTechno)
-	{
-		return false;
-	}
+	if (!pTechno) return false;
 
 	TechnoTypeClass* pType = pTechno->GetTechnoType();
 	HouseClass* pHouse = pTechno->Owner;
-	if (!pType || !pHouse)
+	if (!pType || !pHouse) { pTechno->UnInit(); return false; }
+
+	const auto IsCoordLegal = [](CellStruct* p) -> bool {
+		typedef bool(__thiscall* Fn)(MapClass*, CellStruct*);
+		return reinterpret_cast<Fn>(0x568300)(&MapClass::Instance, p);
+		};
+	const auto FetchCell = [](CellStruct* p) -> CellClass* {
+		typedef CellClass* (__thiscall* Fn)(MapClass*, CellStruct*);
+		return reinterpret_cast<Fn>(0x5657A0)(&MapClass::Instance, p);
+		};
+
+	// 0 = 不限（飞行/两栖）、1 = 必须陆地、2 = 必须水面
+	int requiredTerrain = 1;
+	const Layer layer = pTechno->InWhichLayer();
+	BuildingClass* pIsBuilding = abstract_cast<BuildingClass*>(pTechno);
+
+	if (!pIsBuilding)
 	{
-		pTechno->UnInit();
-		return false;
+		if (layer == Layer::Air || pType->JumpJet || pType->BalloonHover)
+			requiredTerrain = 0;      // 会飞：海里原地创建
+		else if (pType->Naval)
+			requiredTerrain = 2;      // 船：只要水
+		else switch (pType->MovementZone)
+		{
+		case MovementZone::Amphibious:
+		case MovementZone::AmphibiousCrusher:
+		case MovementZone::AmphibiousDestroyer:
+		case MovementZone::WaterBeach:
+			requiredTerrain = 0; break;
+		default:
+			requiredTerrain = 1; break;   // 陆军：不要水
+		}
 	}
 
-	// 0x4834A0 = CellClass 整格可放置判定（0x716150 内部就是这么调的）
-	const auto IsCellClearToBuild = [](CellClass* pCell) -> bool
-		{
-			typedef bool(__thiscall* Fn)(CellClass*, int, char, char, int, int, int, char);
-			return reinterpret_cast<Fn>(0x4834A0)(pCell, 0, 1, 1, -1, 0, -1, 1);
+	const auto TerrainOk = [&](CellClass* pCell) -> bool {
+		if (requiredTerrain == 0) return true;
+		if (requiredTerrain == 2) return pCell->Tile_Is_Water();
+		return !pCell->Tile_Is_Water();
 		};
 
-	const auto IsCoordLegal = [](CellStruct* pCell) -> bool
+	const auto IsPlaceable = [&](CellStruct cell, CellClass** ppOut) -> bool {
+		if (ppOut) *ppOut = nullptr;
+		if (!IsCoordLegal(&cell)) return false;
+		CellClass* pCell = FetchCell(&cell);
+		if (!pCell) return false;
+
+		if (pIsBuilding)
 		{
-			typedef bool(__thiscall* Fn)(MapClass*, CellStruct*);
-			return reinterpret_cast<Fn>(0x568300)(&MapClass::Instance, pCell);
-		};
-
-	const auto FetchCell = [](CellStruct* pCell) -> CellClass*
+			BuildingTypeClass* pBT = abstract_cast<BuildingTypeClass*>(pType);
+			if (!pBT) return false;
+			if (!pBT->CanPlaceHere(&cell, pHouse)) return false;   // 0x464AC0
+		}
+		else
 		{
-			typedef CellClass* (__thiscall* Fn)(MapClass*, CellStruct*);
-			return reinterpret_cast<Fn>(0x5657A0)(&MapClass::Instance, pCell);
-		};
+			if (!TerrainOk(pCell)) return false;
+			if (pTechno->IsCellOccupied(pCell, FacingType::None, -1, nullptr, false)
+				!= Move::OK) return false;                     // 与 Unlimbo 同一闸
+		}
 
-	const auto IsPlaceable = [&](CellStruct cell) -> bool
-		{
-			if (!IsCoordLegal(&cell))
-			{
-				return false;
-			}
-
-			CellClass* pCell = FetchCell(&cell);
-			if (!pCell)
-			{
-				return false;
-			}
-
-			if (BuildingTypeClass* pBuildingType = abstract_cast<BuildingTypeClass*>(pType))
-			{
-				return pBuildingType->CanPlaceHere(&cell, pHouse);   // 0x464AC0
-			}
-
-			return IsCellClearToBuild(pCell);                        // 0x4834A0
+		if (ppOut) *ppOut = pCell;
+		return true;
 		};
 
 	CellStruct target = location;
-	if (!IsPlaceable(target))
+	CellClass* pTargetCell = nullptr;
+
+	if (!IsPlaceable(target, &pTargetCell))
 	{
 		bool bFound = false;
 		for (int radius = 1; radius <= 8 && !bFound; ++radius)
-		{
 			for (int dy = -radius; dy <= radius && !bFound; ++dy)
-			{
 				for (int dx = -radius; dx <= radius; ++dx)
 				{
 					if (dy > -radius && dy < radius && dx > -radius && dx < radius)
-					{
 						continue;
-					}
-
-					CellStruct cell = { (short)(target.X + dx), (short)(target.Y + dy) };
-					if (IsPlaceable(cell))
+					CellStruct cell = { (short)(location.X + dx), (short)(location.Y + dy) };
+					if (IsPlaceable(cell, &pTargetCell))
 					{
-						target = cell;
-						bFound = true;
-						break;
+						location = cell; target = cell; bFound = true; break;
 					}
 				}
-			}
-		}
 
 		if (!bFound)
 		{
@@ -205,57 +211,54 @@ bool MochiTechno::PlaceTechnoAtMap(TechnoClass* pTechno, CellStruct location)
 			pTechno->UnInit();
 			return false;
 		}
+
+		Debug::Log("PlaceTechnoAtMap: %s moved (%d,%d) -> (%d,%d)\n",
+			pType->ID, location.X, location.Y, target.X, target.Y);
 	}
 
-	CellClass* pCell = FetchCell(&target);
-	if (!pCell)
+	if (!pTargetCell) pTargetCell = FetchCell(&target);
+	if (!pTargetCell)
 	{
 		Debug::Log("PlaceTechnoAtMap: no cell at (%d,%d)\n", target.X, target.Y);
 		pTechno->UnInit();
 		return false;
 	}
 
-	pTechno->OnBridge = pCell->ContainsBridge();
-	CoordStruct coord = pCell->GetCoordsWithBridge();
+	pTechno->OnBridge = pTargetCell->ContainsBridge();
+	CoordStruct coord = pTargetCell->GetCoordsWithBridge();
 
-	// 建筑：引擎 TAction 125 Build At 原序（0x6E4280 / 0x6E4297 / 0x6E42BB）
 	if (BuildingClass* pBuilding = abstract_cast<BuildingClass*>(pTechno))
 	{
 		pBuilding->QueueMission(Mission::Construction, false);
 		pBuilding->NextMission();
-
 		if (!pBuilding->ForceCreate(coord))
 		{
 			Debug::Log("ForceCreate failed: %s at (%d,%d)\n", pType->ID, target.X, target.Y);
 			pBuilding->UnInit();
 			return false;
 		}
-
 		pBuilding->BeginMode(BStateType::Idle);
 		pBuilding->QueueMission(Mission::Guard, false);
 		pBuilding->NextMission();
 		pBuilding->Place(false);
-
 		Debug::Log("Placed building %s at (%d,%d) Occ=%02X\n",
-			pType->ID, target.X, target.Y, pCell->OccupationFlags);
+			pType->ID, target.X, target.Y, pTargetCell->OccupationFlags);
 		return true;
 	}
 
-	// 单位 / 步兵 / 空军：引擎 Unlimbo，不包 Unsorted::ScenarioInit
 	if (!pTechno->Unlimbo(coord, DirType::East))
 	{
-		Debug::Log("Unlimbo failed: %s at (%d,%d)\n", pType->ID, target.X, target.Y);
+		Debug::Log("Unlimbo failed: %s at (%d,%d) Layer=%d Naval=%d\n",
+			pType->ID, target.X, target.Y, (int)layer, (int)pType->Naval);
 		pTechno->UnInit();
 		return false;
 	}
 
 	if (pType->JumpJet || pType->BalloonHover)
-	{
 		pTechno->Scatter(CoordStruct::Empty, true, false);
-	}
 
 	Debug::Log("Placed %s at (%d,%d) Occ=%02X\n",
-		pType->ID, target.X, target.Y, pCell->OccupationFlags);
+		pType->ID, target.X, target.Y, pTargetCell->OccupationFlags);
 	return true;
 }
 
