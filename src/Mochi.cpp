@@ -224,7 +224,15 @@ void Mochi::RegisterEvent() {
 	});
 	
 	GeneralHook::ScenarioStartReadSceneINIEvent.Subscribe([]() {
-		Debug::Log("Scenario Started\n");
+		Debug::Log("Scenario StartReadSceneINI\n");
+
+
+	});
+
+	// 游戏真正开始（0x687868）：0x689E90 已经把 CurrentPlayer 的
+	// IsHumanPlayer / IsInPlayerControl 置 1，这里再按 mochi.ini 覆盖才不会被冲掉。
+	GeneralHook::ScenarioStartEvent.Subscribe([]() {
+		Debug::Log("Scenario Started (game really starting)\n");
 
 		// rules INI 已完整读取并解析：打印 [General] MochiLoadLog 里存的字符串。
 		// 例：MochiLoadLog=MOCHI加载游戏RULES_INI完成
@@ -241,22 +249,7 @@ void Mochi::RegisterEvent() {
 			}
 		}
 
-		//p = SurfaceDebug::CreateSurfaceWindow(DSurface::Sidebar, L"Sidebar",false);
-		//SurfaceDebug::CreateSurfaceWindow(DSurface::Hidden, L"Hidden", true);
-		//SurfaceDebug::CreateSurfaceWindow(DSurface::Primary, L"Primary", true);
-		//SurfaceDebug::CreateSurfaceWindow(DSurface::Tile, L"Title", true);
-		//SurfaceDebug::CreateSurfaceWindow(DSurface::Alternate, L"Alternate", true);
-		//SurfaceDebug::CreateSurfaceWindow(DSurface::Temp, L"Temp", true);
-		//SurfaceDebug::CreateSurfaceWindow(DSurface::Composite, L"Composite", true);
 		//MochiGame::PlayMovie("V_001");
-
-	});
-
-	// 游戏真正开始（0x687868）：0x689E90 已经把 CurrentPlayer 的
-	// IsHumanPlayer / IsInPlayerControl 置 1，这里再按 mochi.ini 覆盖才不会被冲掉。
-	GeneralHook::ScenarioStartEvent.Subscribe([]() {
-		Debug::Log("Scenario Started (game really starting)\n");
-
 		bool isAIControl =
 			MochiINI::PlayerBaseConfig->GetValueByKey<bool>(
 				"IsAIControl", false);
