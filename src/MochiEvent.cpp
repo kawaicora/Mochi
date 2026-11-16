@@ -835,7 +835,6 @@ void MochiEvent::OnHouseUpdateSuperAfter(HouseClass* pHouse)
 				const int idxTab = SidebarClass::GetObjectTabIdx(SuperClass::AbsID, index, 0);
 				MouseClass::Instance.RepaintSidebar(idxTab);
 			}
-			Unsorted::CurrentSWType = index;
 		
 		}
 	}
