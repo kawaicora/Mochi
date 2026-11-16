@@ -810,8 +810,7 @@ void MochiEvent::OnHouseUpdateSuperAfter(HouseClass* pHouse)
 
 		if (!pSuper->IsPresent)
 		{
-			pSuper->Grant(false, isPlayer, false);
-			// 已被 Ares 撤权但表还在：只补权属，绝不再 Grant（Grant 会重开表）
+			pSuper->Grant(false, isPlayer, false);  //有这个才会显示倒计时
 			pSuper->IsPresent = true;
 		}
 
