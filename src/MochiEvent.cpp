@@ -836,11 +836,7 @@ void MochiEvent::OnHouseUpdateSuperAfter(HouseClass* pHouse)
 				MouseClass::Instance.RepaintSidebar(idxTab);
 			}
 			Unsorted::CurrentSWType = index;
-			Debug::Log("[SW] %s present=%d ready=%d start=%d dur=%d cameo=%d canFire=%d\n",
-				pSuper->Type->ID,
-				pSuper->IsPresent, pSuper->IsReady,
-				pSuper->RechargeTimer.StartTime, pSuper->RechargeTimer.TimeLeft,
-				MochiSuper::GetCameoChargeState(pSuper), pSuper->CanFire());
+		
 		}
 	}
 }
