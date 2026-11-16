@@ -7,7 +7,8 @@
 class HouseHook {
 public:
 	static Event<HouseClass*> HouseClassCreateEvent;
-
+	static Event<HouseClass*> HouseClassDestoryEvent;
+	static Event<HouseClass*> HouseUpdateSuperAfterEvent;
 	// AI 接管时统计"还活着、且不是我的盟友"的 house 数量
 	static int CountAliveNonAlliedHouses();
 };

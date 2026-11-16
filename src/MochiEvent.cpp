@@ -7,10 +7,11 @@
 #include <MochiMegaMission.h>
 #include <MochiINI.h>
 #include <unordered_set>
+#include <MochiGame.h>
+#include <MochiSuper.h>
 
 
-MochiEvent::HouseAIControlFlag MochiEvent::HouseAIControlFlags[0x40];   // 定义
-
+MochiEvent::THouseExtFlags MochiEvent::HouseExtFlags[0x40];   // 定义
 
 
 //******************************事件发送函数******************************//
@@ -186,6 +187,14 @@ void MochiEvent::SendPlaceEvent(HouseClass* pHouse, const char* id, CellStruct l
 
 };
 void MochiEvent::SendPlaceEvent(HouseClass* pHouse, TechnoTypeClass* pTechnoTypeClass) {
+	if (!pHouse) {
+		Debug::Log("pHouse is Zero\n");
+		return;
+	}
+	if (!pTechnoTypeClass) {
+		Debug::Log("pTechnoTypeClass is Zero\n");
+		return;
+	}
 	EventData* event = EventData::EventClass_CTOR();
 	event->Frame = Unsorted::CurrentFrame;
 	event->Type = (EventType)MochiEventType::CoraPlace;
@@ -201,6 +210,10 @@ void MochiEvent::SendPlaceEvent(HouseClass* pHouse, TechnoTypeClass* pTechnoType
 void MochiEvent::SendActiveSuperWeaponEvent(HouseClass* pHouse, int houseSupersIndex) {
 	EventData* event = EventData::EventClass_CTOR();
 	SuperClass* super = pHouse->Supers[houseSupersIndex];
+	if (!pHouse) {
+		Debug::Log("pHouse is Zero\n");
+		return;
+	}
 	if (!super) {
 		Debug::Log("super is zero\n");
 		return;
@@ -220,7 +233,22 @@ void MochiEvent::SendActiveSuperWeaponEvent(HouseClass* pHouse, int houseSupersI
 	event->HouseIndex = pHouse->ArrayIndex;
 	event->SpecialPlace.ID = houseSupersIndex;
 	event->AddEvent();
-};
+}
+void MochiEvent::SendActiveHouseAllSuperWeaponEvent(HouseClass* pHouse,bool isActiveHouseAllSuperWeapon)
+{
+	if (!pHouse) {
+		Debug::Log("pHouse is zero\n");
+		return;
+	}
+	EventData* event = EventData::EventClass_CTOR();
+	//发送事件
+	event->Frame = Unsorted::CurrentFrame;
+	event->Type = (EventType)MochiEventType::CoraActiveHouseAllSuperWeapon;
+	event->HouseIndex = pHouse->ArrayIndex;
+	event->CommonVar.bVarA = isActiveHouseAllSuperWeapon;
+	event->AddEvent();
+
+}
 
 
 //*******************************事件工具方法******************************//
@@ -229,45 +257,107 @@ bool MochiEvent::IsValidType(MochiEventType type)  {
 }
 
 void MochiEvent::SetHouseAIControlFlag(HouseClass* pHouse, bool isPlayerBefore) {
+	if (!pHouse) {
+		Debug::Log("pHouse is Zero\n");
+		return;
+	}
 	for (int i = 0; i < 8; i++) {
-		if (MochiEvent::HouseAIControlFlags[i].pHouse == pHouse) {
-			MochiEvent::HouseAIControlFlags[i].IsPlayerBefore = isPlayerBefore;
+		if (MochiEvent::HouseExtFlags[i].pHouse == pHouse) {
+			MochiEvent::HouseExtFlags[i].IsPlayerBefore = isPlayerBefore;
 			return;
 		}
 	}
 	// 如果没有找到，添加新的标志
 	for (int i = 0; i < 8; i++) {
-		if (!MochiEvent::HouseAIControlFlags[i].pHouse) {
-			MochiEvent::HouseAIControlFlags[i].pHouse = pHouse;
-			MochiEvent::HouseAIControlFlags[i].IsPlayerBefore = isPlayerBefore;
+		if (!MochiEvent::HouseExtFlags[i].pHouse) {
+			MochiEvent::HouseExtFlags[i].pHouse = pHouse;
+			MochiEvent::HouseExtFlags[i].IsPlayerBefore = isPlayerBefore;
 			return;
 		}
 	}
 }
 
 bool MochiEvent::GetHouseAIControlFlag(HouseClass* pHouse) {
+	if (!pHouse) {
+		Debug::Log("pHouse is Zero\n");
+		return false;
+	}
 	for (int i = 0; i < 8; i++) {
-		if (MochiEvent::HouseAIControlFlags[i].pHouse == pHouse) {
-			return MochiEvent::HouseAIControlFlags[i].IsPlayerBefore;
+		try {
+			if (MochiEvent::HouseExtFlags[i].pHouse == nullptr) continue;
+			if (MochiEvent::HouseExtFlags[i].pHouse == pHouse) {
+				return MochiEvent::HouseExtFlags[i].IsPlayerBefore;
+			}
 		}
+		catch (...) {
+			continue;
+		}
+		
 	}
 	return false; // 如果没有找到，返回默认值
 } 
+void MochiEvent::SetHouseActiveAllSuperWeaponFlag(HouseClass* pHouse,bool isActiveAllSuperWeapon) {
+	if (!pHouse) {
+		Debug::Log("pHouse is Zero\n");
+		return;
+	}
+	for (int i = 0; i < 8; i++) {
+		if (MochiEvent::HouseExtFlags[i].pHouse == pHouse) {
+			MochiEvent::HouseExtFlags[i].IsActiveAllSuperWeapon = isActiveAllSuperWeapon;
+			return;
+		}
+	}
+	// 如果没有找到，添加新的标志
+	for (int i = 0; i < 8; i++) {
+		if (!MochiEvent::HouseExtFlags[i].pHouse) {
+			MochiEvent::HouseExtFlags[i].pHouse = pHouse;
+			MochiEvent::HouseExtFlags[i].IsActiveAllSuperWeapon = isActiveAllSuperWeapon;
+			return;
+		}
+	}
+}
+
+
+bool MochiEvent::GetHouseActiveAllSuperWeaponFlag(HouseClass* pHouse) {
+	if (!pHouse) {
+		Debug::Log("pHouse is Zero\n");
+		return false;
+	}
+	for (int i = 0; i < 8; i++) {
+		try {
+			if (MochiEvent::HouseExtFlags[i].pHouse == nullptr) continue;
+			if (MochiEvent::HouseExtFlags[i].pHouse == pHouse) {
+				return MochiEvent::HouseExtFlags[i].IsActiveAllSuperWeapon;
+			}
+		}
+		catch (...) {
+			continue;
+		}
+		
+	}
+	return false; // 如果没有找到，返回默认值
+}
+
+void MochiEvent::DestoryHouseFlag(HouseClass* pHouse)
+{
+	if (!pHouse) {
+		Debug::Log("pHouse is Zero\n");
+		return;
+	}
+	for (int i = 0; i < 8; i++) {
+		if (MochiEvent::HouseExtFlags[i].pHouse == pHouse) {
+			MochiEvent::HouseExtFlags[i] = MochiEvent::THouseExtFlags{};
+			return;
+		}
+	}
+}
+
 //*******************************事件处理函数******************************//
 
 void MochiEvent::CoraMoneyChange(EventData* data) {
 	Debug::LogW(L"***************************************CoraCompleteChangeMoney*************************************************\n");
 	HouseClass* pHouse = HouseClass::Array[data->HouseIndex];
 	pHouse->TransactMoney(data->Money.Amount);
-	//const wchar_t* opStr = L"加";
-	//if (data->Money.Amount < 0) {
-	//	opStr = L"减";
-	//}
-	//wchar_t buf[100];
-	//wsprintfW(buf, L"修改金钱%ls %d", opStr, abs(data->Money.Amount));
-	//MessageListClass::Instance.AddMessage(L"", 0, buf, ColorScheme::Red, TextPrintType::DropShadow, FPSCounter::CurrentFrameRate * 1, false);
-
-
 };
 
 
@@ -324,6 +414,14 @@ void MochiEvent::CoraMessage(EventData* data)
 		g_recvIdxSet.clear();
 		g_expectedTotalPack = 0;
 	}
+}
+
+void MochiEvent::CoraActiveHouseAllSuperWeapon(EventData* data)
+{
+	Debug::LogW(L"***************************************CoraActiveHouseAllSuperWeapon*************************************************\n");
+	HouseClass* pHouse = HouseClass::Array[data->HouseIndex];
+	MochiEvent::SetHouseActiveAllSuperWeaponFlag(pHouse,data->CommonVar.bVarA);
+
 }
 
 void MochiEvent::CoraCompleteProduction(EventData* data) {
@@ -398,20 +496,7 @@ void MochiEvent::CoraActiveSuperWeapon(EventData* data) {
 		Debug::Log("Can't Find SuperWeapon By Type: %d\n", (int)type);
 		return;
 	}
-	if (!super->CanFire()) {
-		Debug::LogW(L"!%ls 不可发射 类型: %d\n", super->Type->UIName, (int)type);
-		return;
-	}
-	super->Type->ShowTimer = true;
-	super->Type->ManualControl = true;
-	CDTimerClass timer;
-	super->RechargeTimer = timer;
-	super->ShouldDrawProgress();
-	int left = super->RechargeTimer.GetTimeLeft();
-	int duration = Game::F2I(
-		(super->GetRechargeTime() - left)
-		* RulesClass::Instance->ChargeToDrainRatio);
-	super->RechargeTimer.Start(duration);
+	super->Grant(false, false, false);
 
 
 };
@@ -606,6 +691,11 @@ void MochiEvent::OnEventReceived(EventData* data) {
 				MochiEvent::CoraSuperWeaponCharge(data);
 				break;
 			}
+			case (EventType)MochiEventType::CoraActiveHouseAllSuperWeapon:
+			{
+				MochiEvent::CoraActiveHouseAllSuperWeapon(data);
+				break;
+			}
 			case (EventType)MochiEventType::CoraSpecialPlace:
 			{
 				MochiEvent::CoraSpecialPlace(data);
@@ -674,9 +764,26 @@ void MochiEvent::OnEventReceived(EventData* data) {
 
 void MochiEvent::OnHouseCreate(HouseClass* pHouse) {
 		MochiEvent::SetHouseAIControlFlag(pHouse, pHouse->IsHumanPlayer);
+		MochiEvent::SetHouseActiveAllSuperWeaponFlag(pHouse, false);
 }
 
+void MochiEvent::OnHouseDestory(HouseClass* pHouse) {
+	MochiEvent::DestoryHouseFlag(pHouse);
+	
+}
+void MochiEvent::OnLogicClassUpdate() {
 
+}
+void MochiEvent::OnLogicClassUpdateLate() {
+	bool isAutoChargePlayerAllSuperweapon =
+		MochiINI::PlayerBaseConfig->GetValueByKey<bool>(
+			"IsAutoChargePlayerAllSuperweapon", true);
+	if (isAutoChargePlayerAllSuperweapon) {
+		MochiGame::ChargeAllSuperWeapon(HouseClass::CurrentPlayer);
+	}
+
+	
+ }
 void MochiEvent::OnFactoryProgressUpdate(FactoryClass* pFactory) {
 	bool isInstantConstruction =
 		MochiINI::PlayerBaseConfig->GetValueByKey<bool>(
@@ -685,5 +792,56 @@ void MochiEvent::OnFactoryProgressUpdate(FactoryClass* pFactory) {
 		);
 	if (isInstantConstruction) {
 		MochiEvent::SendCompleteProduceEvent(HouseClass::CurrentPlayer, pFactory);
+	}
+}
+
+void MochiEvent::OnHouseUpdateSuperAfter(HouseClass* pHouse)
+{
+	if (!pHouse || pHouse->Defeated)
+		return;
+	if (!MochiEvent::GetHouseActiveAllSuperWeaponFlag(pHouse))
+		return;
+
+	const bool isPlayer = (pHouse == HouseClass::CurrentPlayer);
+
+	for (auto pSuper : pHouse->Supers)
+	{
+		if (!pSuper) { Debug::Log("pSuper is Zero\n"); continue; }
+
+		if (!pSuper->IsPresent)
+		{
+			pSuper->Grant(false, isPlayer, false);
+			// 已被 Ares 撤权但表还在：只补权属，绝不再 Grant（Grant 会重开表）
+			pSuper->IsPresent = true;
+		}
+
+		// 引擎前半段已按 StartTime/Duration 判过到期，但结果被 Ares 的 Lose 清掉了，
+		// 这里是 Ares 之后唯一能存活到"绘制 + 点击"的补点
+		if (pSuper->RechargeTimer.StartTime != -1
+			&& Unsorted::CurrentFrame - pSuper->RechargeTimer.StartTime >= pSuper->RechargeTimer.TimeLeft)
+		{
+			pSuper->SetReadiness(true);   // 0x6CB820，只写 +0x6F
+		}
+
+		if (pSuper->IsSuspended)
+			pSuper->SetOnHold(false);
+
+		// Ares 每帧 RepaintSidebar 会重建 tab，把它摘掉 → 每帧补
+		// AddCameo 幂等：已存在直接 return 0（SidebarClass__AddCameo.c 63–76 行）
+		if (isPlayer)
+		{
+			const int index = pSuper->Type->ArrayIndex;
+			if (MouseClass::Instance.AddCameo(AbstractType::Special, index))
+			{
+				const int idxTab = SidebarClass::GetObjectTabIdx(SuperClass::AbsID, index, 0);
+				MouseClass::Instance.RepaintSidebar(idxTab);
+			}
+			Unsorted::CurrentSWType = index;
+			Debug::Log("[SW] %s present=%d ready=%d start=%d dur=%d cameo=%d canFire=%d\n",
+				pSuper->Type->ID,
+				pSuper->IsPresent, pSuper->IsReady,
+				pSuper->RechargeTimer.StartTime, pSuper->RechargeTimer.TimeLeft,
+				MochiSuper::GetCameoChargeState(pSuper), pSuper->CanFire());
+		}
 	}
 }

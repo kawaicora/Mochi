@@ -190,6 +190,7 @@ void Mochi::RegisterEvent() {
 			MochiINI::INIReader["PlayerBaseConfig"]["IsDrawGameObjectInfo"].Raw = "false";
 			MochiINI::INIReader["PlayerBaseConfig"]["IsDrawHouseInfo"].Raw = "false";
 			MochiINI::INIReader["PlayerBaseConfig"]["GiveMoneyCount"].Raw = "10000";
+			MochiINI::INIReader["PlayerBaseConfig"]["IsActivePlayerAllSuperWeapon"] .Raw = "false";
 		}
 
 		MochiINI::INIReader.SaveINI("mochi.ini");
@@ -205,7 +206,7 @@ void Mochi::RegisterEvent() {
 		MakeCommand<GenUnitCommandClass>();
 		MakeCommand<DrawGameObjectInfoCommandClass>();
 		MakeCommand<DrawHouseInfoCommandClass>();
-
+		MakeCommand<ActiveAllSuperWeaponCommendClass>();
 		
 		
 		MakeCommand<LaunchSuperWeaponACommandClass>();
@@ -321,6 +322,11 @@ void Mochi::RegisterEvent() {
 			MochiINI::PlayerBaseConfig->GetValueByKey<bool>(
 				"IsDrawAllFactoryProduction", true);
 		if (isDrawAllFactoryProduction) MochiGame::DrawAllFactoryProduction();
+
+		bool isActivePlayerAllSuperWeapon =
+			MochiINI::PlayerBaseConfig->GetValueByKey<bool>(
+				"IsActivePlayerAllSuperWeapon", false);
+		MochiEvent::SendActiveHouseAllSuperWeaponEvent(HouseClass::CurrentPlayer, isActivePlayerAllSuperWeapon);
 		
 	});
 
@@ -341,6 +347,7 @@ void Mochi::RegisterEvent() {
 		// sending, and that burst crashed the client.
 		UdpHookDrain();
 #endif
+		MochiEvent::OnLogicClassUpdate();
 	});
 
 #ifdef ENABLE_EXT_NETWORK
@@ -354,13 +361,8 @@ void Mochi::RegisterEvent() {
 		// Second injection point: late in the frame, after the logic has run.
 		UdpHookDrain();
 #endif
-		bool isAutoChargePlayerAllSuperweapon =
-			MochiINI::PlayerBaseConfig->GetValueByKey<bool>(
-				"IsAutoChargePlayerAllSuperweapon", true);
-		if (isAutoChargePlayerAllSuperweapon) {
-			MochiGame::ChargeAllSuperWeapon(HouseClass::CurrentPlayer);
-		}
-
+		
+		MochiEvent::OnLogicClassUpdateLate();
 		//Debug::Log("Current cell: %d  %d", DisplayClass::Instance.Display_ZoneCell.X, DisplayClass::Instance.Display_ZoneCell.Y);
 
 	});
@@ -372,9 +374,7 @@ void Mochi::RegisterEvent() {
 		}
 		MochiEvent::OnHouseCreate(pHouseClass);
 		Debug::LogW(L"House Class Created %ls %S \n", MochiHouse::GetPlayerNameByHouseIndex(pHouseClass->ArrayIndex), pHouseClass->Type->ID);
-		if (!HouseClass::CurrentPlayer) {
-			return;
-		}
+		if (!HouseClass::CurrentPlayer) return;
 		if (pHouseClass->ArrayIndex == HouseClass::CurrentPlayer->ArrayIndex) {
 			Debug::Log("Current Player  House Created\n  ");
 
@@ -382,7 +382,13 @@ void Mochi::RegisterEvent() {
 		}
 
 	});
-
+	HouseHook::HouseClassDestoryEvent.Subscribe([](HouseClass* pHouseClass) {
+		if (!pHouseClass) {
+			Debug::Log("pHouseClass is Zero\n");
+			return;
+		}
+		MochiEvent::OnHouseDestory(pHouseClass);
+	});
 	FactoryHook::FactoryClassCreateEvent.Subscribe([](FactoryClass* pFactory) {
 		if (!pFactory) {
 			return;
@@ -400,7 +406,9 @@ void Mochi::RegisterEvent() {
 	FactoryHook::FactoryProgressUpdateEvent.Subscribe([](FactoryClass* pFactory) {
 		MochiEvent::OnFactoryProgressUpdate(pFactory);
 	});
-
+	HouseHook::HouseUpdateSuperAfterEvent.Subscribe([](HouseClass* pHouse) {
+		MochiEvent::OnHouseUpdateSuperAfter(pHouse);
+	});
 	EventHook::NetworkingRespondToEvent.Subscribe([](EventData* data) {
 		Debug::Log("Receive Event Type: 0x%02X HouseIndex: %d Frame: %d\n", (int)data->Type, data->HouseIndex, data->Frame);
 		MochiEvent::OnEventReceived(data);

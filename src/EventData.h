@@ -300,6 +300,21 @@ public:
 			int Amount;
 
 		} Money;
+		struct CommonVar {
+			int iVarA;
+			int iVarB;
+			int iVarC;
+			int iVarD;
+			int iVarE;
+			int iVarF;
+			bool bVarA;
+			bool bVarB;
+			bool bVarC;
+			bool bVarD;
+			bool bVarE;
+			bool bVarF;
+
+		} CommonVar;
 		struct AIControl {
 			bool isAIControl;
 		} AIControl;

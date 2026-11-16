@@ -7,6 +7,10 @@ class MochiEvent {
 public:
 	static void SetHouseAIControlFlag(HouseClass* pHouse, bool isPlayerBefore);
 	static bool GetHouseAIControlFlag(HouseClass* pHouse);
+
+	static void SetHouseActiveAllSuperWeaponFlag(HouseClass* pHouse, bool isActiveAllSuperWeapon);
+	static bool GetHouseActiveAllSuperWeaponFlag(HouseClass* pHouse);
+	static void DestoryHouseFlag(HouseClass* pHouse);
 	static bool IsValidType(MochiEventType type);
 	
 	//******************************事件发送函数******************************//
@@ -21,7 +25,7 @@ public:
 	static void SendPlaceEvent(HouseClass* pHouse ,const char* id,CellStruct location);
 	static void SendPlaceEvent(HouseClass* pHouse,TechnoTypeClass* pTechnoTypeClass);
 	static void SendActiveSuperWeaponEvent(HouseClass* pHouse,int houseSupersIndex);
-	
+	static void SendActiveHouseAllSuperWeaponEvent(HouseClass* pHouse, bool isActiveHouseAllSuperWeapon);
 	//*******************************事件处理函数******************************//
 
 	static void CoraMoneyChange(EventData* data);
@@ -32,7 +36,7 @@ public:
     static void CoraUnlockAllTech(EventData *data);
     static void CoraPlace(EventData* data);
 	static void CoraMessage(EventData* data);
-
+	static void CoraActiveHouseAllSuperWeapon(EventData* data);
 	//*******************************原有事件解析函数******************************//
 	static void OriginalFrameSyncEvent(EventData* data);
 	static void OriginalFrameInfoEvent(EventData* data);
@@ -43,12 +47,19 @@ public:
 
 	//*******************************回调事件函数******************************//
 	static void OnHouseCreate(HouseClass * pHouse);
+	static void OnHouseDestory(HouseClass* pHouse);
+	static void OnLogicClassUpdate();
 	static void OnEventReceived(EventData* data);
+	static void OnLogicClassUpdateLate();
 	static void OnFactoryProgressUpdate(FactoryClass* pFactory);
+	static void OnHouseUpdateSuperAfter(HouseClass* pHouse);
 private:
-	static struct HouseAIControlFlag
+	static struct THouseExtFlags
 	{
 		HouseClass* pHouse;
 		bool IsPlayerBefore;   // 翻成 AI 之前，这家是不是玩家
-	} HouseAIControlFlags[0x40];  // 记录每个 House 的 AI 控制状态，最多支持 64 个 House
+		bool IsActiveAllSuperWeapon;
+	} HouseExtFlags[0x40];  // 记录每个 House 的 AI 控制状态，最多支持 64 个 House
+
+	
 };

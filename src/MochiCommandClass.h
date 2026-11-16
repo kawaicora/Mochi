@@ -123,6 +123,60 @@ public:
 	}
 };
 
+class ActiveAllSuperWeaponCommendClass : public CommandClass{
+public:
+	//CommandClass
+	virtual const char* GetName() const override
+	{
+		return "ActiveAllSuperWeapon";
+	}
+
+	virtual const wchar_t* GetUIName() const override
+	{
+		return L"Active All SuperWeapon";
+	}
+
+	virtual const wchar_t* GetUICategory() const override
+	{
+		return L"Mochi开发选项";
+	}
+
+	virtual const wchar_t* GetUIDescription() const override
+	{
+		return L"启用所有超武";
+	}
+
+	virtual void Execute(WWKey eInput) const override
+	{
+		MochiINI::PlayerBaseConfig =
+			(MochiINI::Section*)MochiINI::INIReader.GetSection(
+				"PlayerBaseConfig");
+
+		if (!MochiINI::PlayerBaseConfig)
+		{
+			// 配置不存在时，创建 Section
+			MochiINI::PlayerBaseConfig =
+				&MochiINI::INIReader["PlayerBaseConfig"];
+		}
+
+		bool isActivePlayerAllSuperWeapon =
+			MochiINI::PlayerBaseConfig->GetValueByKey<bool>(
+				"IsActivePlayerAllSuperWeapon", false);
+		isActivePlayerAllSuperWeapon = !isActivePlayerAllSuperWeapon;
+		// 修改配置
+		MochiINI::INIReader["PlayerBaseConfig"]
+			["IsActivePlayerAllSuperWeapon"].Raw =
+			isActivePlayerAllSuperWeapon ? "true" : "false";
+
+		// 保存配置
+		MochiINI::INIReader.SaveINI("mochi.ini");
+		wchar_t buf[100];
+		wsprintfW(buf, L"%ls", isActivePlayerAllSuperWeapon ? L"已经启用所有超武" : L"已经恢复原先超武");
+		MessageListClass::Instance.AddMessage(L"提示", 0, buf, ColorScheme::Red, TextPrintType::DropShadow, FPSCounter::CurrentFrameRate * 1, false);
+		MochiEvent::SendActiveHouseAllSuperWeaponEvent(HouseClass::CurrentPlayer, isActivePlayerAllSuperWeapon);
+		return;
+	}
+};
 class AutoChargePlayerAllSuperweaponCommandClass : public CommandClass 
 {
 	//CommandClass

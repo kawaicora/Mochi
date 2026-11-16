@@ -3,6 +3,7 @@
 #include <MochiINI.h>
 #include "MochiEvent.h"
 Event<HouseClass*> HouseHook::HouseClassCreateEvent;
+Event<HouseClass*> HouseHook::HouseClassDestoryEvent;
 DEFINE_HOOK(0x4F6532, HouseClass_CTOR, 5) {
 	GET(HouseClass*, pHouseClass, EAX);
 	HouseHook::HouseClassCreateEvent.Invoke(pHouseClass);
@@ -25,6 +26,59 @@ DEFINE_HOOK(0x4F8361, HouseClass_CanBuild, 0x8) {
 
 	return 0x4F7BEE;
 }
+
+
+DEFINE_HOOK(0x4F7371, HouseClass_DTOR, 0x6)
+{
+	GET(HouseClass*, pItem, ESI);
+
+	HouseHook::HouseClassDestoryEvent.Invoke(pItem);
+
+	return 0;
+}
+
+
+
+
+
+//****************************超武部分********************************************
+
+DEFINE_HOOK(0x4F92DD, HouseClass_Update_HideSupersBeforeAres, 5)
+{
+	GET(HouseClass*, pThis, ESI);
+
+	if (pThis && !pThis->Defeated && MochiEvent::GetHouseActiveAllSuperWeaponFlag(pThis))
+	{
+		for (auto pSuper : pThis->Supers)
+			if (pSuper) pSuper->IsPresent = false;   // 只在这两次调用之间"藏起来"
+	}
+
+	return 0;   // 执行被搬走的 mov ecx,0x87F7E8
+}
+
+
+
+Event<HouseClass*> HouseHook::HouseUpdateSuperAfterEvent;
+
+DEFINE_HOOK(0x50B1CA, HouseClass_HouseUpdateSuperAfterEx, 5)   //用Ares的返回地址继续
+{
+	GET(HouseClass*, pThis, ECX);
+
+	HouseHook::HouseUpdateSuperAfterEvent.Invoke(pThis);
+	return 0x0;
+}
+//****************************超武部分结束********************************************
+
+//
+//DEFINE_HOOK(0x50B36E, HouseClass_UpdateSuperWeaponsUnavailableEX, 5)
+//{
+//	GET(HouseClass*, pThis, ECX);
+//
+//	if (!pThis->Defeated) {
+//		SuperHook::HouseUpdateSuperAfterEvent.Invoke(pThis);
+//	}
+//	return 0;
+//}
 
 //**********************************AI 胜利判定*************************************************
 // AI 接管（CurrentPlayer->IsHumanPlayer == false）时的胜利判定。

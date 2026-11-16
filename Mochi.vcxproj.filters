@@ -102,6 +102,12 @@
     <ClCompile Include="src\INIHook.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="src\SuperHook.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\MochiSuper.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\Debug.h">
@@ -189,6 +195,12 @@
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="src\INIHook.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="src\SuperHook.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="src\MochiSuper.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>
