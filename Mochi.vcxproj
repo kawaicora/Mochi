@@ -18,6 +18,8 @@
     <ClCompile Include="src\FactoryHook.cpp" />
     <ClCompile Include="src\MochiRadar.cpp" />
     <ClCompile Include="src\MochiSuper.cpp" />
+    <ClCompile Include="src\MochiUIManager.cpp" />
+    <ClCompile Include="src\MochiMacro.cpp" />
     <ClCompile Include="src\MovieHook.cpp" />
     <ClCompile Include="src\RadarHook.cpp" />
     <ClCompile Include="src\GeneralHook.cpp" />
@@ -51,6 +53,8 @@
     <ClInclude Include="src\FactoryHook.h" />
     <ClInclude Include="src\MochiRadar.h" />
     <ClInclude Include="src\MochiSuper.h" />
+    <ClInclude Include="src\MochiUIManager.h" />
+    <ClInclude Include="src\MochiMacro.h" />
     <ClInclude Include="src\MovieHook.h" />
     <ClInclude Include="src\RadarHook.h" />
     <ClInclude Include="src\GeneralHook.h" />
@@ -77,6 +81,7 @@
     <ClInclude Include="src\UdpHook.h" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="cpp.hint" />
     <None Include="src\EventSystem.inl" />
     <None Include="src\MochiINI.inl" />
   </ItemGroup>

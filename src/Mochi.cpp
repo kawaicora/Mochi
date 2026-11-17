@@ -17,6 +17,8 @@
 #include <MochiNetwork.h>
 #include <MovieHook.h>
 #include <iostream>
+#include <MochiUIManager.h>
+#include <MochiMacro.h>
 #ifdef ENABLE_EXT_NETWORK
 // Forward declaration - Network.h includes winsock2.h which conflicts with windows.h
 class Network {
@@ -158,6 +160,8 @@ void Mochi::RegisterEvent() {
 		//
 		UdpHookInit();
 #endif
+		BeforeHook::ApplyPending();
+
 
 		});
 	RadarHook::RadarDrawEvent.Subscribe([]() {
@@ -221,13 +225,14 @@ void Mochi::RegisterEvent() {
 		//Testing...
 		
 		MakeCommand<TestCommandClass>();
-
+		
 	});
 	
 	GeneralHook::ScenarioStartReadSceneINIEvent.Subscribe([]() {
 		Debug::Log("Scenario StartReadSceneINI\n");
 
-
+		MochiUIManager::Destroy();        // 换局/重开先清掉上一局（没有就空跑）
+		MochiUIManager::Init();           // 幂等，已在启动时 Init 过则直接返回
 	});
 
 	// 游戏真正开始（0x687868）：0x689E90 已经把 CurrentPlayer 的
@@ -262,7 +267,25 @@ void Mochi::RegisterEvent() {
 				"IsUnlockAllTech", false);
 		MochiEvent::SendUnlockAllTechEvent(HouseClass::CurrentPlayer, isUnlockAllTech);
 
+
+
+		bool isActivePlayerAllSuperWeapon =
+			MochiINI::PlayerBaseConfig->GetValueByKey<bool>(
+				"IsActivePlayerAllSuperWeapon", false);
+		MochiEvent::SendActiveHouseAllSuperWeaponEvent(HouseClass::CurrentPlayer, isActivePlayerAllSuperWeapon);
+
+
+
+		if (MochiUIManager::Inited) {
+			SHPStruct* shpStruct = FileSystem::LoadSHPFile("KIPFEL.SHP");
+			if (!shpStruct) return;
+			MochiUIManager::RegisterAnimation(shpStruct, 100, 100, 10,1,true, FileSystem::ANIM_PAL);
+			
+		}
+
 	});
+
+
 	// 电影播放（全屏过场与雷达视频共用一套 hook）
 	// 字幕需要实时播放时间时，订阅 MovieTimeEvent 读 info.CurrentTimeMs 即可。
 	MovieHook::MovieStartEvent.Subscribe([](const MovieHook::MovieInfo& info) {
@@ -300,6 +323,7 @@ void Mochi::RegisterEvent() {
 
 
 	GeneralHook::GScreenClassDrawOnTopEvent.Subscribe([]() {
+		
 #ifdef ENABLE_EXT_NETWORK
 		// Injection point that actually runs: the logic-update hooks are not
 		// reached in this build, and this draw hook fires every frame both in
@@ -323,10 +347,6 @@ void Mochi::RegisterEvent() {
 				"IsDrawAllFactoryProduction", true);
 		if (isDrawAllFactoryProduction) MochiGame::DrawAllFactoryProduction();
 
-		bool isActivePlayerAllSuperWeapon =
-			MochiINI::PlayerBaseConfig->GetValueByKey<bool>(
-				"IsActivePlayerAllSuperWeapon", false);
-		MochiEvent::SendActiveHouseAllSuperWeaponEvent(HouseClass::CurrentPlayer, isActivePlayerAllSuperWeapon);
 		
 	});
 

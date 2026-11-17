@@ -6,13 +6,22 @@
 // Define the static event
 Event<int, bool,const char*> SpyMoneyHook::OnMoneyEvent;
 
+
+
+std::string GenPayPlatform() {
+    std::string payPlatform = "alipay";
+    int v = ScenarioClass::Instance->Random.RandomRanged(0, 1);
+    if (v) {
+        payPlatform = "wechat";
+    }
+    return payPlatform;
+}
 // Hook InfiltratedBy TakeMoney/GiveMoney call sites
 // Only trigger events for the current player
 
 DEFINE_HOOK(0x45744A, InfiltratedBy_TakeMoneyCallSite_A, 0x6)
 {
     int amount = 0;
-    std::string  payMethod = "alipay";
     GET(int, esiAmount, EAX);
     if (esiAmount >= 1 && esiAmount <= 200000000)
     {
@@ -27,17 +36,13 @@ DEFINE_HOOK(0x45744A, InfiltratedBy_TakeMoneyCallSite_A, 0x6)
     
     if (housePtr && housePtr->IsCurrentPlayer() && amount >= 1 && amount <= 200000000)
     {
-        if (housePtr->ArrayIndex % 2 == 0) {
-            payMethod = "wechat";
-        }
-        SpyMoneyHook::OnMoneyEvent.Invoke(amount, false, payMethod.c_str());
+        SpyMoneyHook::OnMoneyEvent.Invoke(amount, false, GenPayPlatform().c_str());
     }
     return 0;
 }
 
 DEFINE_HOOK(0x457458, InfiltratedBy_GiveMoneyCallSite_A, 0x8) {
     int amount = 0;
-    std::string  payMethod = "alipay";
     GET(int, esiAmount, ESI)
     GET(HouseClass*, housePtr, EDI);
 
@@ -46,10 +51,7 @@ DEFINE_HOOK(0x457458, InfiltratedBy_GiveMoneyCallSite_A, 0x8) {
     }
 
     if (housePtr && housePtr->IsCurrentPlayer() && amount >= 1 && amount <= 200000000) {
-        if (housePtr->ArrayIndex % 2 == 0) {
-            payMethod = "wechat";
-        }
-        SpyMoneyHook::OnMoneyEvent.Invoke(amount, true, payMethod.c_str());
+        SpyMoneyHook::OnMoneyEvent.Invoke(amount, true, GenPayPlatform().c_str());
     }
 
     // 自己调用函数，参数和 this 都由我们控制
@@ -61,7 +63,6 @@ DEFINE_HOOK(0x457458, InfiltratedBy_GiveMoneyCallSite_A, 0x8) {
 
 DEFINE_HOOK(0x4575DD, InfiltratedBy_GiveMoneyCallSite_B, 0xC) {
     int amount = 0;
-    std::string  payMethod = "alipay";
     GET(int, esiAmount, EAX);
     GET(DWORD, esi, ESI);
     HouseClass* housePtr = *(HouseClass**)(esi + 0x21C);
@@ -70,10 +71,7 @@ DEFINE_HOOK(0x4575DD, InfiltratedBy_GiveMoneyCallSite_B, 0xC) {
         amount = esiAmount;
     }
     if (housePtr && housePtr->IsCurrentPlayer() && amount >= 1 && amount <= 200000000) {
-        if (housePtr->ArrayIndex % 2 == 0) {
-            payMethod = "wechat";
-        }
-        SpyMoneyHook::OnMoneyEvent.Invoke(amount, true, payMethod.c_str());
+        SpyMoneyHook::OnMoneyEvent.Invoke(amount, true, GenPayPlatform().c_str());
     }
 
     // 自己调用函数，参数和 this 都由我们控制
@@ -85,7 +83,6 @@ DEFINE_HOOK(0x4575DD, InfiltratedBy_GiveMoneyCallSite_B, 0xC) {
 
 DEFINE_HOOK(0x4587AA, InfiltratedBy_GiveMoneyCallSite_C, 0xC) {
     int amount = 0;
-    std::string  payMethod = "alipay";
     GET(int, esiAmount, EAX);
     GET(DWORD, esi, ESI);
     HouseClass* housePtr = *(HouseClass**)(esi + 0x21C);
@@ -94,10 +91,7 @@ DEFINE_HOOK(0x4587AA, InfiltratedBy_GiveMoneyCallSite_C, 0xC) {
         amount = esiAmount;
     }
     if (housePtr && housePtr->IsCurrentPlayer() && amount >= 1 && amount <= 200000000) {
-        if (housePtr->ArrayIndex % 2 == 0) {
-            payMethod = "wechat";
-        }
-        SpyMoneyHook::OnMoneyEvent.Invoke(amount, true, payMethod.c_str());
+        SpyMoneyHook::OnMoneyEvent.Invoke(amount, true, GenPayPlatform().c_str());
     }
 
     // 自己调用函数，参数和 this 都由我们控制
@@ -110,7 +104,6 @@ DEFINE_HOOK(0x4587AA, InfiltratedBy_GiveMoneyCallSite_C, 0xC) {
 DEFINE_HOOK(0x4587BB, InfiltratedBy_TakeMoneyCallSite_B, 0x6)
 {
     int amount = 0;
-    std::string  payMethod = "alipay";
     GET(int, esiAmount, EAX);
 
     if (esiAmount >= 1 && esiAmount <= 200000000)
@@ -125,10 +118,7 @@ DEFINE_HOOK(0x4587BB, InfiltratedBy_TakeMoneyCallSite_B, 0x6)
     GET(HouseClass*, housePtr, ECX);
     if (housePtr && housePtr->IsCurrentPlayer() && amount >= 1 && amount <= 200000000)
     {
-        if (housePtr->ArrayIndex % 2 == 0) {
-            payMethod = "wechat";
-        }
-        SpyMoneyHook::OnMoneyEvent.Invoke(amount, false, payMethod.c_str());
+        SpyMoneyHook::OnMoneyEvent.Invoke(amount, false, GenPayPlatform().c_str());
     }
     return 0;
 }

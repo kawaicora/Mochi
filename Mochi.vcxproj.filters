@@ -108,6 +108,12 @@
     <ClCompile Include="src\MochiSuper.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="src\MochiUIManager.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\MochiMacro.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\Debug.h">
@@ -201,6 +207,12 @@
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="src\MochiSuper.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="src\MochiUIManager.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="src\MochiMacro.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>

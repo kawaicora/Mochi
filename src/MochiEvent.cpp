@@ -807,7 +807,7 @@ void MochiEvent::OnHouseUpdateSuperAfter(HouseClass* pHouse)
 	for (auto pSuper : pHouse->Supers)
 	{
 		if (!pSuper) { Debug::Log("pSuper is Zero\n"); continue; }
-
+		
 		if (!pSuper->IsPresent)
 		{
 			pSuper->Grant(false, isPlayer, false);  //有这个才会显示倒计时
@@ -838,4 +838,6 @@ void MochiEvent::OnHouseUpdateSuperAfter(HouseClass* pHouse)
 		
 		}
 	}
+
+
 }
