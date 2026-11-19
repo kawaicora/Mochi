@@ -1,21 +1,18 @@
 ﻿
 #include "EventData.h"
 #include <EventClass.h>
-
-EventData* EventData::EventClass_CTOR() {
-	alignas(EventData) char buffer[sizeof(EventData)];
-	auto event = reinterpret_cast<EventData*>(buffer);
-	memset(event, 0, sizeof(EventData));
-	return event;
+EventData::EventData(int houseIndex, EventType eventType)
+{
+	memset(this, 0, sizeof(*this));          // 含 IsExecuted(+1) 和 DataBuffer(+7..110)
+	Type = eventType;
+	HouseIndex = static_cast<char>(houseIndex);   // -1 = 无效 house
+	Frame = Unsorted::CurrentFrame;          // 与原版 ctor 一致（原版也是从 0xA8ED84 取）
 }
 bool EventData::AddEvent()
 {
 	return EventClass::OutList.Add(*reinterpret_cast<EventClass*>(this));
 }
-EventData::EventData(const EventData& another)
-{
-	memcpy(this, &another, sizeof(*this));
-}
+
 EventData& EventData::operator=(const EventData& another)
 {
 	if (this != &another)

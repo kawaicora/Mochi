@@ -5,9 +5,8 @@
 class EventData
 {
 public:
-	static EventData* EventClass_CTOR();
+	EventData(int houseIndex = 0, EventType eventType = EventType::Empty);
 	bool AddEvent();
-	explicit EventData(const EventData& another);
 	EventData& operator=(const EventData& another);
 	bool operator==(const EventData& q) const;
 	EventType Type;

@@ -198,6 +198,7 @@ void Mochi::RegisterEvent() {
 		}
 
 		MochiINI::INIReader.SaveINI("mochi.ini");
+		MochiGame::OnCmdLineParse(args);
 
 	});
 
@@ -279,7 +280,7 @@ void Mochi::RegisterEvent() {
 		if (MochiUIManager::Inited) {
 			SHPStruct* shpStruct = FileSystem::LoadSHPFile("KIPFEL.SHP");
 			if (!shpStruct) return;
-			MochiUIManager::RegisterAnimation(shpStruct, 100, 100, 10,1,true, FileSystem::ANIM_PAL);
+			MochiUIManager::RegisterAnimation(shpStruct, 1, 1, 10,1,true, FileSystem::ANIM_PAL);
 			
 		}
 

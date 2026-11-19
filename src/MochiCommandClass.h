@@ -590,11 +590,6 @@ public:
 class MoveCommandClass : public CommandClass
 {
 public:
-	static DWORD __fastcall sub_5C07D0(const char* FullPath, DSurface* surface, int* a3)
-	{
-		JMP_STD(0x5C07D0);
-	}
-
 	virtual const char* GetName() const override
 	{
 		return "Move";
@@ -629,11 +624,6 @@ public:
 class AttackCommandClass : public CommandClass
 {
 public:
-	static DWORD __fastcall sub_5C07D0(const char* FullPath, DSurface* surface, int* a3)
-	{
-		JMP_STD(0x5C07D0);
-	}
-
 	virtual const char* GetName() const override
 	{
 		return "Attack";

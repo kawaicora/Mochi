@@ -80,7 +80,7 @@ BEFORE_HOOK(0x50AF10, HouseClass_UpdateSuperWeaponsOwned, 5)
 				}
 				else if (status.Charging && !pSuper->IsPowered()) {
 					// Ares: pSuper->IsOnHold —— 就是 SuperClass+0x70（SetOnHold 读写的就是这个字节，
-					// 见 sub_6CB4D0.c），Mochi YRpp 里叫 IsSuspended。CanHold 是 +0x60，不是这个意思。
+					// 见 sub_6CB4D0.c），Mochi YRpp 里叫 IsSuspended
 					update = pSuper->IsSuspended && pSuper->SetOnHold(false);
 				}
 				else if (!status.Charging && !pSuper->IsPowered()) {

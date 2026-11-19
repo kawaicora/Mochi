@@ -54,12 +54,11 @@ public:
 	static void OnFactoryProgressUpdate(FactoryClass* pFactory);
 	static void OnHouseUpdateSuperAfter(HouseClass* pHouse);
 private:
-	static struct THouseExtFlags
+	static struct HouseExtFlag
 	{
 		HouseClass* pHouse;
 		bool IsPlayerBefore;   // 翻成 AI 之前，这家是不是玩家
 		bool IsActiveAllSuperWeapon;
 	} HouseExtFlags[0x40];  // 记录每个 House 的 AI 控制状态，最多支持 64 个 House
-
-	
+	static std::vector<SuperClass*> vActivedSuper;
 };

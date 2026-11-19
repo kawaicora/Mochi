@@ -11,9 +11,8 @@
 #include <MochiSuper.h>
 
 
-MochiEvent::THouseExtFlags MochiEvent::HouseExtFlags[0x40];   // 定义
-
-
+MochiEvent::HouseExtFlag MochiEvent::HouseExtFlags[0x40];   // 定义
+std::vector<SuperClass*> MochiEvent::vActivedSuper;
 //******************************事件发送函数******************************//
 
 
@@ -21,15 +20,14 @@ MochiEvent::THouseExtFlags MochiEvent::HouseExtFlags[0x40];   // 定义
 void MochiEvent::SendMoveEvent(AbstractClass* pAbstract,CellStruct location) {
 	if (CellClass* pCell = MapClass::Instance.TryGetCellAt(location)) {
 
+
+		
 		HouseClass* pHouse = pAbstract->GetOwningHouse();
-		EventData* event = EventData::EventClass_CTOR();
-		event->Type = EventType::MegaMission;
-		event->Frame = Unsorted::CurrentFrame;
-		event->HouseIndex = (unsigned char)pHouse->ArrayIndex;
-		event->MegaMission.Whom = TargetClass(pAbstract);
-		event->MegaMission.Destination = TargetClass(pCell);
-		event->MegaMission.Mission = (unsigned char)Mission::Move;
-		event->AddEvent();
+		EventData event(pHouse->ArrayIndex, EventType::MegaMission);
+		event.MegaMission.Whom = TargetClass(pAbstract);
+		event.MegaMission.Destination = TargetClass(pCell);
+		event.MegaMission.Mission = (unsigned char)Mission::Move;
+		event.AddEvent();
 	}
 	else {
 		Debug::LogW(L"无效的坐标 %d %d", location.X, location.Y);
@@ -40,14 +38,11 @@ void MochiEvent::SendAttackEvent(AbstractClass* pAbstract, CellStruct location) 
 	if (CellClass* pCell = MapClass::Instance.TryGetCellAt(location)) {
 
 		HouseClass* pHouse = pAbstract->GetOwningHouse();
-		EventData* event = EventData::EventClass_CTOR();
-		event->Type = EventType::MegaMission;
-		event->Frame = Unsorted::CurrentFrame;
-		event->HouseIndex = (unsigned char)pHouse->ArrayIndex;
-		event->MegaMission.Whom = TargetClass(pAbstract);
-		event->MegaMission.Target = TargetClass(pCell);
-		event->MegaMission.Mission = (unsigned char)Mission::Attack;
-		event->AddEvent();
+		EventData event(pHouse->ArrayIndex, EventType::MegaMission);
+		event.MegaMission.Whom = TargetClass(pAbstract);
+		event.MegaMission.Target = TargetClass(pCell);
+		event.MegaMission.Mission = (unsigned char)Mission::Attack;
+		event.AddEvent();
 	}
 	else {
 		Debug::LogW(L"无效的坐标 %d %d", location.X, location.Y);
@@ -59,26 +54,25 @@ void MochiEvent::SendAttackEvent(AbstractClass* pAbstract, CellStruct location) 
 
 void MochiEvent::SendMessagePacketEx(wchar_t* msg, int size, bool justShowAllied, int totalPackCount, int currPackCount, int idx)
 {
-	EventData* event = EventData::EventClass_CTOR();
-	event->Type = (EventType)MochiEventType::CoraMessage;
-
-	event->MessageEx.totalPackCount = totalPackCount;
-	event->MessageEx.currPackCount = currPackCount;
-	event->MessageEx.packIdx = idx;
-	event->MessageEx.justShowAllied = justShowAllied;
+	HouseClass* pHouse = HouseClass::CurrentPlayer;
+	EventData event(pHouse->ArrayIndex, (EventType)MochiEventType::CoraMessage);
+	event.MessageEx.totalPackCount = totalPackCount;
+	event.MessageEx.currPackCount = currPackCount;
+	event.MessageEx.packIdx = idx;
+	event.MessageEx.justShowAllied = justShowAllied;
 
 	// 兜底保护，防止上层传错size
 	int copyCnt = size;
 	if (copyCnt < 0) copyCnt = 0;
 	if (copyCnt > 40) copyCnt = 40;
-	event->MessageEx.packSize = copyCnt;
+	event.MessageEx.packSize = copyCnt;
 
 	if (copyCnt > 0)
 	{
-		memcpy(event->MessageEx.Message, msg, copyCnt * sizeof(wchar_t));
+		memcpy(event.MessageEx.Message, msg, copyCnt * sizeof(wchar_t));
 	}
 
-	event->AddEvent();
+	event.AddEvent();
 }
 
 
@@ -104,71 +98,51 @@ void MochiEvent::SendCompleteProduceEvent(HouseClass* pHouse, FactoryClass* pFac
 	if (pFactory->Owner->Available_Money() < pFactory->Balance) {
 		return;
 	}
-	EventData* event = EventData::EventClass_CTOR();
-	event->Type = (EventType)MochiEventType::CoraCompleteProduction;
-	event->Frame = Unsorted::CurrentFrame;
-	event->HouseIndex = (unsigned char)pHouse->ArrayIndex;
-
-	event->Produce.RTTIType = pFactory->Object->WhatAmI();
-	event->Produce.IsNaval = pFactory->Object->GetTechnoType()->Naval;
-	event->Produce.HeapID = MochiTechno::GetIndex(pFactory->Object->GetTechnoType());
-	if (event->Produce.HeapID == -1) {
+	EventData event(pHouse->ArrayIndex, (EventType)MochiEventType::CoraCompleteProduction);
+	event.Produce.RTTIType = pFactory->Object->WhatAmI();
+	event.Produce.IsNaval = pFactory->Object->GetTechnoType()->Naval;
+	event.Produce.HeapID = MochiTechno::GetIndex(pFactory->Object->GetTechnoType());
+	if (event.Produce.HeapID == -1) {
 		return;
 	}
-	event->AddEvent();
+	event.AddEvent();
 };
 void MochiEvent::SendChangeMoneyEvent(HouseClass* pHouse, int amount) {
 	if (!pHouse) {
 		return;
 	}
-	EventData* event = EventData::EventClass_CTOR();
-	event->Frame = Unsorted::CurrentFrame;
-	event->Type = (EventType)MochiEventType::CoraMoneyChange;
-	event->HouseIndex = pHouse->ArrayIndex;
-	event->Money.Amount = amount;
-	event->AddEvent();
+	EventData event(pHouse->ArrayIndex, (EventType)MochiEventType::CoraMoneyChange);
+	event.Money.Amount = amount;
+	event.AddEvent();
 };
 void MochiEvent::SendUnlockAllTechEvent(HouseClass* pHouse, bool IsUnlock) {
 	if (!pHouse) {
 		return;
 	}
-	EventData* event = EventData::EventClass_CTOR();
-	event->Frame = Unsorted::CurrentFrame;
-	event->Type = (EventType)MochiEventType::CoraUnlockAllTech;
-	event->HouseIndex = pHouse->ArrayIndex;
-	event->UnlockAllTech.IsUnlock = IsUnlock;
-	event->AddEvent();
+	EventData event(pHouse->ArrayIndex, (EventType)MochiEventType::CoraUnlockAllTech);
+	event.UnlockAllTech.IsUnlock = IsUnlock;
+	event.AddEvent();
 };
 
 void MochiEvent::SendSuperWeaponChargeEvent(HouseClass* pHouse, int SuperWeaponIndex) {
-	EventData* event = EventData::EventClass_CTOR();
-	event->HouseIndex = pHouse->ArrayIndex;
-	event->Frame = Unsorted::CurrentFrame;
-	event->Type = (EventType)MochiEventType::CoraSuperWeaponCharge;
-	event->HouseIndex = pHouse->ArrayIndex;
-	event->SpecialPlace.ID = SuperWeaponIndex;
-	event->AddEvent();
+	EventData event(pHouse->ArrayIndex, (EventType)MochiEventType::CoraSuperWeaponCharge);
+	event.HouseIndex = pHouse->ArrayIndex;
+	event.SpecialPlace.ID = SuperWeaponIndex;
+	event.AddEvent();
 };
 
 
 void MochiEvent::SendSpecialPlaceEvent(HouseClass* pHouse, SuperWeaponTypeClass* superWeaponType, CellStruct location) {
-	EventData* event = EventData::EventClass_CTOR();
+	EventData event(pHouse->ArrayIndex, (EventType)MochiEventType::CoraSpecialPlace);
 	//发送事件
-	event->Frame = Unsorted::CurrentFrame;
-	event->Type = (EventType)MochiEventType::CoraSpecialPlace;
-	event->HouseIndex = pHouse->ArrayIndex;
-	event->SpecialPlace.ID = superWeaponType->ArrayIndex;
-	event->SpecialPlace.Location = location;
-	event->AddEvent();
+	event.SpecialPlace.ID = superWeaponType->ArrayIndex;
+	event.SpecialPlace.Location = location;
+	event.AddEvent();
 
 };
 
 void MochiEvent::SendPlaceEvent(HouseClass* pHouse, const char* id, CellStruct location) {
-	EventData* event = EventData::EventClass_CTOR();
-	event->Frame = Unsorted::CurrentFrame;
-	event->Type = (EventType)MochiEventType::CoraPlace;
-	event->HouseIndex = pHouse->ArrayIndex;
-
+	EventData event(pHouse->ArrayIndex, (EventType)MochiEventType::CoraPlace);
 	TechnoTypeClass* pTechnoTypeClass = TechnoTypeClass::Find(id);
 	if (!pTechnoTypeClass) {
 		Debug::Log("Can't Find TechnoTypeClass By ID: %s\n", id);
@@ -179,11 +153,11 @@ void MochiEvent::SendPlaceEvent(HouseClass* pHouse, const char* id, CellStruct l
 	{
 		Debug::Log("Invalid HeapID: %d\n", heapId);
 	}
-	event->Place.RTTIType = pTechnoTypeClass->WhatAmI();
-	event->Place.HeapID = heapId;
-	event->Place.IsNaval = pTechnoTypeClass->Naval;
-	event->Place.Location = location;
-	event->AddEvent();
+	event.Place.RTTIType = pTechnoTypeClass->WhatAmI();
+	event.Place.HeapID = heapId;
+	event.Place.IsNaval = pTechnoTypeClass->Naval;
+	event.Place.Location = location;
+	event.AddEvent();
 
 };
 void MochiEvent::SendPlaceEvent(HouseClass* pHouse, TechnoTypeClass* pTechnoTypeClass) {
@@ -195,20 +169,17 @@ void MochiEvent::SendPlaceEvent(HouseClass* pHouse, TechnoTypeClass* pTechnoType
 		Debug::Log("pTechnoTypeClass is Zero\n");
 		return;
 	}
-	EventData* event = EventData::EventClass_CTOR();
-	event->Frame = Unsorted::CurrentFrame;
-	event->Type = (EventType)MochiEventType::CoraPlace;
-	event->HouseIndex = pHouse->ArrayIndex;
-	event->Place.RTTIType = pTechnoTypeClass->WhatAmI();
-	event->Place.HeapID = MochiTechno::GetIndex(pTechnoTypeClass);
-	event->Place.IsNaval = pTechnoTypeClass->Naval;
-	event->Place.Location = DisplayClass::Instance.Display_ZoneCell;
-	event->AddEvent();
+	EventData event(pHouse->ArrayIndex, (EventType)MochiEventType::CoraPlace);
+	event.Place.RTTIType = pTechnoTypeClass->WhatAmI();
+	event.Place.HeapID = MochiTechno::GetIndex(pTechnoTypeClass);
+	event.Place.IsNaval = pTechnoTypeClass->Naval;
+	event.Place.Location = DisplayClass::Instance.Display_ZoneCell;
+	event.AddEvent();
 
 };
 
 void MochiEvent::SendActiveSuperWeaponEvent(HouseClass* pHouse, int houseSupersIndex) {
-	EventData* event = EventData::EventClass_CTOR();
+	EventData event(pHouse->ArrayIndex, (EventType)MochiEventType::CoraActiveSuperWeapon);
 	SuperClass* super = pHouse->Supers[houseSupersIndex];
 	if (!pHouse) {
 		Debug::Log("pHouse is Zero\n");
@@ -228,11 +199,8 @@ void MochiEvent::SendActiveSuperWeaponEvent(HouseClass* pHouse, int houseSupersI
 	}
 
 	//发送事件
-	event->Frame = Unsorted::CurrentFrame;
-	event->Type = (EventType)MochiEventType::CoraActiveSuperWeapon;
-	event->HouseIndex = pHouse->ArrayIndex;
-	event->SpecialPlace.ID = houseSupersIndex;
-	event->AddEvent();
+	event.SpecialPlace.ID = houseSupersIndex;
+	event.AddEvent();
 }
 void MochiEvent::SendActiveHouseAllSuperWeaponEvent(HouseClass* pHouse,bool isActiveHouseAllSuperWeapon)
 {
@@ -240,13 +208,10 @@ void MochiEvent::SendActiveHouseAllSuperWeaponEvent(HouseClass* pHouse,bool isAc
 		Debug::Log("pHouse is zero\n");
 		return;
 	}
-	EventData* event = EventData::EventClass_CTOR();
+	EventData event(pHouse->ArrayIndex, (EventType)MochiEventType::CoraActiveHouseAllSuperWeapon);
 	//发送事件
-	event->Frame = Unsorted::CurrentFrame;
-	event->Type = (EventType)MochiEventType::CoraActiveHouseAllSuperWeapon;
-	event->HouseIndex = pHouse->ArrayIndex;
-	event->CommonVar.bVarA = isActiveHouseAllSuperWeapon;
-	event->AddEvent();
+	event.CommonVar.bVarA = isActiveHouseAllSuperWeapon;
+	event.AddEvent();
 
 }
 
@@ -346,7 +311,7 @@ void MochiEvent::DestoryHouseFlag(HouseClass* pHouse)
 	}
 	for (int i = 0; i < 8; i++) {
 		if (MochiEvent::HouseExtFlags[i].pHouse == pHouse) {
-			MochiEvent::HouseExtFlags[i] = MochiEvent::THouseExtFlags{};
+			MochiEvent::HouseExtFlags[i] = MochiEvent::HouseExtFlag{};
 			return;
 		}
 	}
@@ -416,13 +381,6 @@ void MochiEvent::CoraMessage(EventData* data)
 	}
 }
 
-void MochiEvent::CoraActiveHouseAllSuperWeapon(EventData* data)
-{
-	Debug::LogW(L"***************************************CoraActiveHouseAllSuperWeapon*************************************************\n");
-	HouseClass* pHouse = HouseClass::Array[data->HouseIndex];
-	MochiEvent::SetHouseActiveAllSuperWeaponFlag(pHouse,data->CommonVar.bVarA);
-
-}
 
 void MochiEvent::CoraCompleteProduction(EventData* data) {
 	Debug::LogW(L"***************************************CoraCompleteProduction*************************************************\n");
@@ -485,23 +443,30 @@ void MochiEvent::CoraSpecialPlace(EventData* data) {
 void MochiEvent::CoraActiveSuperWeapon(EventData* data) {
 	Debug::LogW(L"***************************************CoraActiveSuperWeapon*************************************************\n");
 	HouseClass* pHouse = HouseClass::Array[data->HouseIndex];
-	SuperWeaponTypeClass* superWeaponType = SuperWeaponTypeClass::Array[data->SpecialPlace.ID];
-	if (!superWeaponType) {
-		Debug::Log("Can't Find SuperWeaponType By Index: %d\n", data->SpecialPlace.ID);
-		return;
+	if (!pHouse) {
+
 	}
-	SuperWeaponType type = superWeaponType->Type;
-	SuperClass* super = MochiHouse::FindSuperWeapon(pHouse, type);
-	if (!super) {
-		Debug::Log("Can't Find SuperWeapon By Type: %d\n", (int)type);
-		return;
-	}
-	super->Grant(false, false, false);
+	SuperClass* super = pHouse->Supers[data->SpecialPlace.ID];
+	
+	
+
+
+	//TODO:  需要结构存储supers
+
+
+
 
 
 };
 
 
+void MochiEvent::CoraActiveHouseAllSuperWeapon(EventData* data)
+{
+	Debug::LogW(L"***************************************CoraActiveHouseAllSuperWeapon*************************************************\n");
+	HouseClass* pHouse = HouseClass::Array[data->HouseIndex];
+	MochiEvent::SetHouseActiveAllSuperWeaponFlag(pHouse, data->CommonVar.bVarA);
+
+}
 void MochiEvent::CoraUnlockAllTech(EventData* data) {
 	Debug::LogW(L"***************************************CoraUnlockAllTech*************************************************\n");
 	HouseClass* pHouse = HouseClass::Array[data->HouseIndex];

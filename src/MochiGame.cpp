@@ -3,6 +3,10 @@
 #include <MochiGraph.h>
 #include <FPSCounter.h>
 #include <websocket.h>
+#include "MochiCD.h"
+
+bool MochiGame::bNoCD = true;
+
 void MochiGame::ReadINI(const char* file) {
 	CCINIClass* pINI = GameCreate<CCINIClass>();
 	if (pINI) {
@@ -312,7 +316,6 @@ void MochiGame::SetCurrentPlayerAIControl(bool bCurrentPlayIsAIControl) { //true
 
 void MochiGame::ActiveAllSuperWeapon(HouseClass* pHouse) {
 	for (int i = 0; i < pHouse->Supers.Count; i++) {
-		EventData* event = EventData::EventClass_CTOR();
 		SuperClass* super = pHouse->Supers[i];
 		if (!super) {
 			Debug::Log("super is zero\n");
@@ -361,7 +364,6 @@ void MochiGame::RandomGenUnits(HouseClass* pHouse) {
 void MochiGame::ChargeAllSuperWeapon(HouseClass* pHouse) {
 
 	for (int i = 0;i < pHouse->Supers.Count; i++) {
-		EventData* event = EventData::EventClass_CTOR();
 		SuperClass* super = pHouse->Supers[i];
 		if (!super) {
 
@@ -399,4 +401,34 @@ void MochiGame::LaunchSuperWeaponAtMouseLocation(HouseClass* pHouse, int index) 
 	catch (...) {
 		Debug::Log("Failed to launch super weapon\n");
 	}
-};
+}
+
+
+
+//***********************************************************************
+void MochiGame::InitNoCDMode() {
+	if (!MochiCD::Instance.Count) {
+		Debug::Log("No CD drives detected. Switching to NoCD mode.\n");
+		MochiGame::bNoCD = true;
+	}
+
+	if (MochiGame::bNoCD) {
+		Debug::Log("Optimizing list of CD drives for NoCD mode.\n");
+		memset(MochiCD::Instance.Drives, -1, 26);
+
+		char drv[] = "a:\\";
+		for (int i = 0; i < 26; ++i) {
+			drv[0] = 'a' + (i + 2) % 26;
+			if (GetDriveTypeA(drv) == DRIVE_FIXED) {
+				MochiCD::Instance.Drives[0] = (i + 2) % 26;
+				MochiCD::Instance.Count = 1;
+				break;
+			}
+		}
+	}
+}
+void MochiGame::OnCmdLineParse(GeneralHook::CmdLineArgs args)
+{
+	MochiGame::InitNoCDMode();
+}
+;

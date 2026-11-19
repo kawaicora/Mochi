@@ -5,8 +5,11 @@
 #include <Debug.h>
 #include <MochiINI.h>
 #include <HouseHook.h>
+#include <GeneralHook.h>
 class MochiGame {
 public:
+	static bool bNoCD;
+	static void InitNoCDMode();
 	static void ReadINI(const char* file);
 	static double NowSeconds();
 	static std::vector<HouseClass*> GetSelectedObjectOwnerHouse();
@@ -30,4 +33,9 @@ public:
 	static void RandomGenUnits(HouseClass* pHouse);
 	static void ChargeAllSuperWeapon(HouseClass* pHouse);
 	static void LaunchSuperWeaponAtMouseLocation(HouseClass* pHouse, int index);
+
+
+	//**************************HOOKEVENT************************
+
+	static void OnCmdLineParse(GeneralHook::CmdLineArgs args);
 };

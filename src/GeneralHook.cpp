@@ -2,6 +2,7 @@
 #include "GeneralHook.h"
 #include <Helpers/Macro.h>
 #include <YRPP.h>
+#include "MochiGame.h"
 Event<> GeneralHook::YRBootEvent;
 Event<GeneralHook::CmdLineArgs> GeneralHook::CmdLineParseEvent;
 Event<const char*, va_list> GeneralHook::DebugLogEvent;
@@ -16,6 +17,79 @@ Event<> GeneralHook::MessagePumpEvent;
 Event<> GeneralHook::LogicClassUpdateLateEvent;
 Event<> GeneralHook::GScreenClassDrawOnTopEvent;
 
+//**************************启动必须***************************************
+DEFINE_HOOK(0x4A80D0, CD_AlwaysFindYR, 6)
+{
+	if (MochiGame::bNoCD) {
+		R->EAX(2);
+		return 0x4A8265;
+	}
+	return 0;
+}
+
+DEFINE_HOOK(0x4790E0, CD_AlwaysAvailable, 7)
+{
+	if (MochiGame::bNoCD) {
+		R->AL(1);
+		return 0x479109;
+	}
+	return 0;
+}
+
+DEFINE_HOOK(0x479110, CD_NeverAsk, 5)
+{
+	if (MochiGame::bNoCD) {
+		R->AL(1);
+		return 0x4791EA;
+	}
+	return 0;
+}
+
+DEFINE_HOOK(0x47AE36, CDFileClass_SetFileName, 8)
+{
+	GET(void*, CDControl, EAX);
+
+	if (!CDControl || MochiGame::bNoCD) {
+		return 0x47AEF0;
+	}
+	return 0x47AE3E;
+}
+
+DEFINE_HOOK(0x47B026, FileFindOpen, 8)
+{
+	GET(void*, CDControl, EBX);
+
+	if (!CDControl || MochiGame::bNoCD) {
+		return 0x47B0AE;
+	}
+	return 0x47B02E;
+}
+
+DEFINE_HOOK(0x49F5C0, CopyProtection_IsLauncherRunning, 8)
+{
+	R->AL(1);
+	return 0x49F61A;
+}
+
+DEFINE_HOOK(0x49F620, CopyProtection_NotifyLauncher, 5)
+{
+	R->AL(1);
+	return 0x49F733;
+}
+
+DEFINE_HOOK(0x49F7A0, CopyProtection_CheckProtectedData, 8)
+{
+	R->AL(1);
+	return 0x49F8A7;
+}
+
+// this douchebag blows your base up when it thinks you're cheating
+DEFINE_HOOK(0x55CFDF, BlowMeUp, 0)
+{
+	return 0x55D059;
+}
+
+//*******************************启动必须结束******************************************
 
 DEFINE_HOOK(0x4068E0, DebugLog, 0x0) {
 	return 0x4A4AC0;
